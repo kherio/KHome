@@ -92,6 +92,5 @@ Para que una actualización se instale sobre la anterior, todos los APK deben ir
 ## Ideas siguientes
 
 - Fondos de pantalla personalizados y presentación de fotos.
-- Fila de MyIPTV (canales o últimos vistos) en el Home.
 - Carpetas de apps, packs de iconos y colores personalizables.
 - Copia y restauración de la configuración.
