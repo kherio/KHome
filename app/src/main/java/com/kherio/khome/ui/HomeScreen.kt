@@ -294,7 +294,7 @@ fun HomeScreen(vm: HomeViewModel) {
             // Carrusel de apps.
             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                 val cardWidth = (maxWidth - SidePadding * 2 - CardGap * (perPage - 1)) / perPage
-                val cardHeight = cardWidth / 1.58f
+                val cardHeight = cardWidth / 1.9f
                 // Al mover, el relleno lateral crece para que cualquier tarjeta pueda quedar centrada.
                 val rowPad by animateDpAsState(
                     if (movingPkg != null) (maxWidth - cardWidth) / 2 else SidePadding,

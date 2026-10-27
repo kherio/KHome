@@ -240,7 +240,7 @@ fun AppCard(
     Focusable(
         onClick = onClick,
         onLongClick = onLongClick,
-        modifier = modifier.aspectRatio(if (compact) 1.8f else 1.58f),
+        modifier = modifier.aspectRatio(if (compact) 2.1f else 1.9f),
         shape = RoundedCornerShape(if (compact) 14.dp else 18.dp),
         background = k.card,
         backgroundFocused = k.cardFocused,
@@ -252,8 +252,8 @@ fun AppCard(
         focusRequester = focusRequester,
         onFocusChange = onFocusChange,
     ) { focused ->
-        val idle = if (compact) 0.52f else 0.55f
-        val big = if (compact) 0.58f else 0.66f
+        val idle = if (compact) 0.56f else 0.62f
+        val big = if (compact) 0.64f else 0.72f
         val fraction by animateFloatAsState(
             if (focused) big else idle,
             tween(220, easing = FastOutSlowInEasing),
