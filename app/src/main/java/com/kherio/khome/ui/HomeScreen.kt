@@ -179,6 +179,16 @@ fun HomeScreen(vm: HomeViewModel) {
         }
     }
 
+    // Al volver a la fila de apps, la pantalla sube del todo para que se vean la hora y el tiempo.
+    LaunchedEffect(activeRow) {
+        if (activeRow != 0) return@LaunchedEffect
+        val offset = pageState.firstVisibleItemScrollOffset
+        when {
+            pageState.firstVisibleItemIndex > 0 -> pageState.animateScrollToItem(0)
+            offset > 0 -> pageState.animateScrollBy(-offset.toFloat(), spring(dampingRatio = 1f, stiffness = 120f))
+        }
+    }
+
     // Al mover una app, la cámara la sigue: se queda en el centro y las vecinas se apartan.
     LaunchedEffect(movingPkg) {
         val pkg = movingPkg
