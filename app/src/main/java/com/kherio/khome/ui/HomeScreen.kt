@@ -695,6 +695,7 @@ fun HomeScreen(vm: HomeViewModel) {
                 },
                 onNetwork = { showStatus = true },
                 onVpn = { context.openVpnSettings() },
+                onBluetooth = { context.openBluetoothSettings() },
                 onUpdate = { showSettings = true },
                 onSettings = { showSettings = true },
                 inputsFocus = inputsFocus,

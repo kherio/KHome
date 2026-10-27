@@ -613,6 +613,7 @@ fun BottomBar(
     onInputs: () -> Unit,
     onNetwork: () -> Unit,
     onVpn: () -> Unit,
+    onBluetooth: () -> Unit,
     onUpdate: () -> Unit,
     onSettings: () -> Unit,
     inputsFocus: FocusRequester,
@@ -649,6 +650,12 @@ fun BottomBar(
                 raised = raised,
                 onClick = onNetwork,
                 tintOverride = if (!net.wired && !net.wifi) k.textTertiary else null,
+            )
+            RoundIconButton(
+                icon = LineIconKind.BLUETOOTH,
+                description = stringResource(R.string.cd_bluetooth),
+                raised = raised,
+                onClick = onBluetooth,
             )
             if (net.vpn) {
                 RoundIconButton(

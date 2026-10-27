@@ -29,7 +29,7 @@ import kotlin.math.sin
 
 // Todos los iconos se dibujan en una cuadrícula de 24x24 y se escalan al tamaño pedido.
 
-enum class LineIconKind { WIFI, ETHERNET, VPN, MONITOR, BROOM, GEAR }
+enum class LineIconKind { WIFI, ETHERNET, VPN, MONITOR, BROOM, GEAR, BLUETOOTH }
 
 enum class WeatherKind { CLEAR, PARTLY, CLOUDY, FOG, RAIN, SNOW, STORM }
 
@@ -49,6 +49,7 @@ fun LineIcon(kind: LineIconKind, tint: Color, modifier: Modifier = Modifier) {
                 LineIconKind.MONITOR -> drawMonitor(tint, st)
                 LineIconKind.BROOM -> drawBroom(tint, st)
                 LineIconKind.GEAR -> drawGear(tint, st)
+                LineIconKind.BLUETOOTH -> drawBluetooth(tint, st)
             }
         }
     }
@@ -141,6 +142,18 @@ fun WeatherIcon(
 // ---------------------------------------------------------------------------
 // Iconos de interfaz
 // ---------------------------------------------------------------------------
+
+private fun DrawScope.drawBluetooth(c: Color, st: Stroke) {
+    val path = Path().apply {
+        moveTo(6.5f, 7f)
+        lineTo(17.5f, 17f)
+        lineTo(12f, 22f)
+        lineTo(12f, 2f)
+        lineTo(17.5f, 7f)
+        lineTo(6.5f, 17f)
+    }
+    drawPath(path, c, style = st)
+}
 
 private fun DrawScope.drawWifi(c: Color, st: Stroke) {
     val cx = 12f

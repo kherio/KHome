@@ -51,6 +51,8 @@ fun Context.openWifiSettings() = openSettingsAction(Settings.ACTION_WIFI_SETTING
 
 fun Context.openVpnSettings() = openSettingsAction(Settings.ACTION_VPN_SETTINGS)
 
+fun Context.openBluetoothSettings() = openSettingsAction(Settings.ACTION_BLUETOOTH_SETTINGS)
+
 /** Cierra los procesos en segundo plano de una app. */
 fun Context.closeApp(app: AppEntry) {
     runCatching {
