@@ -5,6 +5,7 @@ package com.kherio.khome.ui
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.animateScrollBy
@@ -67,6 +68,27 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalFoundationApi::class)
 private val NoAutoScroll = object : BringIntoViewSpec {
     override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float = 0f
+}
+
+/**
+ * Desplazamiento automático al enfocar: mueve lo mínimo para que el elemento quede dentro con un
+ * margen, y lo hace con una animación larga y suave en lugar del salto rápido por defecto.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+private val SmoothSpec = object : BringIntoViewSpec {
+    override val scrollAnimationSpec: AnimationSpec<Float> = tween(420, easing = FastOutSlowInEasing)
+
+    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
+        val margin = containerSize * 0.10f
+        val leading = offset - margin
+        val trailing = offset + size + margin
+        return when {
+            leading >= 0f && trailing <= containerSize -> 0f
+            size + 2 * margin >= containerSize -> offset - margin
+            leading < 0f -> leading
+            else -> trailing - containerSize
+        }
+    }
 }
 
 private val SidePadding = 56.dp
@@ -194,12 +216,17 @@ fun HomeScreen(vm: HomeViewModel) {
 
     KBackground {
         Column(modifier = Modifier.fillMaxSize().padding(vertical = 20.dp)) {
-            // Parte alta: tiempo a la izquierda, reloj a la derecha (se oculta al bajar a las novedades).
-            AnimatedVisibility(
-                visible = !newsFocused,
-                enter = fadeIn() + expandVertically(),
-                exit = fadeOut() + shrinkVertically(),
+            CompositionLocalProvider(LocalBringIntoViewSpec provides SmoothSpec) {
+            LazyColumn(
+                state = pageState,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
+            // Parte alta: tiempo a la izquierda, reloj a la derecha. Es la primera fila de la
+            // lista, así que sube y baja con el mismo desplazamiento suave que las demás.
+            item {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -215,14 +242,6 @@ fun HomeScreen(vm: HomeViewModel) {
                 ClockWidget(use24h = settings.use24h)
             }
             }
-
-            LazyColumn(
-                state = pageState,
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
-            ) {
             item {
             Column(modifier = Modifier.fillMaxWidth()) {
             if (movingPkg != null) {
@@ -389,6 +408,7 @@ fun HomeScreen(vm: HomeViewModel) {
                         }
                     }
                 }
+            }
             }
             }
 
