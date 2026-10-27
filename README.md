@@ -1,17 +1,20 @@
 # KHome
 
-Launcher (pantalla de inicio) para Android TV / Google TV con estética **glassmorphism**: paneles de cristal translúcidos, bordes de luz y fondo con halos de color. Nativo en Kotlin + Jetpack Compose for TV.
+Launcher (pantalla de inicio) para Android TV / Google TV, nativo en Kotlin + Jetpack Compose for TV. Diseño limpio: tiempo y reloj arriba, carrusel de apps en el centro y botones redondos abajo.
 
-## Funciones (v0.1)
+## Funciones
 
-- Rejilla con todas tus apps (banner de TV si lo tienen; si no, el icono), ordenadas por nombre.
-- **Dock de favoritas** en la parte inferior.
-- **Menú con pulsación larga** (OK mantenido): abrir, añadir/quitar de favoritas, mover favoritas, ocultar, información de la app y desinstalar.
-- Reloj y fecha, indicador de Wi-Fi / Ethernet y botón de ajustes.
-- Ajustes: apps por fila (5–8), reloj 12/24 h, gestión de apps ocultas, acceso a los ajustes del sistema y al selector de pantalla de inicio.
-- Se actualiza solo al instalar o desinstalar apps.
+- **Carrusel de apps** con tarjetas de icono (3 a 6 por pantalla), borde dorado al enfocar y nombre solo en la tarjeta enfocada. Puntos de página.
+- **Elegir qué apps se ven** en el escritorio: Ajustes → Apps del escritorio.
+- **Pulsación larga** (OK mantenido) en una app: mover, ocultar, cerrar, información y desinstalar. El orden se guarda.
+- **Tiempo** (Open-Meteo, sin clave): temperatura, estado, máx/mín, lluvia, viento, humedad y los próximos días. Elige tu ciudad en Ajustes → Tiempo.
+- Reloj grande con fecha (12/24 h).
+- Botones inferiores: entradas HDMI, limpiar memoria, estado de red (Ethernet/Wi-Fi/VPN) y ajustes. Estilo plano o con relieve.
+- Temas claro / oscuro / sistema y 5 fondos.
 - **Actualizador integrado:** detecta nuevas releases de GitHub y se instala desde la propia app.
-- El botón Atrás no cierra el launcher; pulsar Home estando en KHome vuelve arriba.
+- El botón Atrás no cierra el launcher; pulsar Home estando en KHome vuelve al inicio.
+
+Nota: el botón de entradas depende de que la tele exponga sus entradas HDMI al sistema; en algunos modelos puede no funcionar.
 
 ## Compilar
 
@@ -92,5 +95,6 @@ Para que una actualización se instale sobre la anterior, todos los APK deben ir
 ## Ideas siguientes
 
 - Fondos de pantalla personalizados y presentación de fotos.
+- Fila de MyIPTV (canales o últimos vistos) en el Home.
 - Carpetas de apps, packs de iconos y colores personalizables.
 - Copia y restauración de la configuración.

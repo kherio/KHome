@@ -1,21 +1,31 @@
-@file:OptIn(ExperimentalTvMaterial3Api::class)
+@file:OptIn(ExperimentalFoundationApi::class, ExperimentalTvMaterial3Api::class)
 
 package com.kherio.khome.ui
 
+import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.text.format.DateFormat
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -24,333 +34,577 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import androidx.tv.material3.Border
-import androidx.tv.material3.ClickableSurfaceDefaults
+import androidx.compose.ui.window.DialogProperties
 import androidx.tv.material3.ExperimentalTvMaterial3Api
-import androidx.tv.material3.Icon
-import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.kherio.khome.R
 import com.kherio.khome.data.AppEntry
+import com.kherio.khome.update.UpdateState
+import com.kherio.khome.weather.WeatherData
+import com.kherio.khome.weather.weatherDescription
+import com.kherio.khome.weather.weatherKind
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
-// ---------------------------------------------------------------------------
-// Tarjeta de app
-// ---------------------------------------------------------------------------
-
+/** Pide el foco a este [FocusRequester] cuando el composable aparece en pantalla. */
 @Composable
-private fun glassBorder(shape: Shape) = ClickableSurfaceDefaults.border(
-    border = Border(BorderStroke(1.dp, Glass.Stroke), shape = shape),
-    focusedBorder = Border(BorderStroke(3.dp, Glass.StrokeFocused), shape = shape),
-)
+fun RequestFocusOnShow(requester: FocusRequester, key: Any? = Unit) {
+    LaunchedEffect(key) {
+        delay(60)
+        runCatching { requester.requestFocus() }
+    }
+}
 
+/**
+ * Base de todos los elementos enfocables con el mando: escala, borde dorado y brillo al enfocar.
+ * Usa solo foundation para no depender de detalles de la API de tv-material.
+ */
+@Composable
+fun Focusable(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    onLongClick: (() -> Unit)? = null,
+    shape: Shape = RoundedCornerShape(16.dp),
+    background: Color = Color.Transparent,
+    backgroundFocused: Color = background,
+    idleBorder: Color = Color.Transparent,
+    focusScale: Float = 1.06f,
+    glow: Boolean = true,
+    forceHighlight: Boolean = false,
+    focusRequester: FocusRequester? = null,
+    onFocusChange: ((Boolean) -> Unit)? = null,
+    content: @Composable BoxScope.(focused: Boolean) -> Unit,
+) {
+    val k = LocalK.current
+    var focused by remember { mutableStateOf(false) }
+    val highlighted = focused || forceHighlight
+    val scale by animateFloatAsState(if (highlighted) focusScale else 1f, tween(140), label = "scale")
+
+    var base = modifier
+    if (focusRequester != null) base = base.focusRequester(focusRequester)
+
+    Box(
+        modifier = base
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .onFocusChanged {
+                focused = it.isFocused
+                onFocusChange?.invoke(it.isFocused)
+            }
+            .shadow(
+                elevation = if (highlighted && glow) 18.dp else 0.dp,
+                shape = shape,
+                clip = false,
+                ambientColor = k.accent,
+                spotColor = k.accent,
+            )
+            .clip(shape)
+            .background(if (highlighted) backgroundFocused else background)
+            .border(
+                width = if (highlighted) 2.5.dp else 1.dp,
+                color = if (highlighted) k.accent else idleBorder,
+                shape = shape,
+            )
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
+        content = { content(highlighted) },
+    )
+}
+
+/** Tarjeta de app: solo el icono, centrado; el nombre aparece al enfocar. */
 @Composable
 fun AppCard(
     app: AppEntry,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     modifier: Modifier = Modifier,
-    showLabel: Boolean = true,
+    moving: Boolean = false,
+    focusRequester: FocusRequester? = null,
+    onFocusChange: ((Boolean) -> Unit)? = null,
 ) {
-    val shape = RoundedCornerShape(16.dp)
-    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Surface(
-            onClick = onClick,
-            onLongClick = onLongClick,
+    val k = LocalK.current
+    Focusable(
+        onClick = onClick,
+        onLongClick = onLongClick,
+        modifier = modifier.aspectRatio(1.58f),
+        shape = RoundedCornerShape(18.dp),
+        background = k.card,
+        backgroundFocused = k.cardFocused,
+        idleBorder = k.cardBorder,
+        focusScale = if (moving) 1.1f else 1.06f,
+        forceHighlight = moving,
+        focusRequester = focusRequester,
+        onFocusChange = onFocusChange,
+    ) { focused ->
+        Image(
+            bitmap = app.icon,
+            contentDescription = app.label,
+            contentScale = ContentScale.Fit,
             modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(16f / 9f),
-            shape = ClickableSurfaceDefaults.shape(shape),
-            colors = ClickableSurfaceDefaults.colors(
-                containerColor = Glass.Fill,
-                focusedContainerColor = Glass.FillFocused,
-                pressedContainerColor = Glass.FillFocused,
-            ),
-            scale = ClickableSurfaceDefaults.scale(focusedScale = 1.08f),
-            border = glassBorder(shape),
-        ) {
-            Image(
-                bitmap = app.image,
-                contentDescription = app.label,
-                contentScale = if (app.isBanner) ContentScale.Crop else ContentScale.Fit,
-                modifier = if (app.isBanner) {
-                    Modifier.fillMaxSize()
-                } else {
-                    Modifier
-                        .fillMaxSize()
-                        .padding(14.dp)
-                },
-            )
-        }
-        if (showLabel) {
+                .align(Alignment.Center)
+                .fillMaxHeight(if (focused) 0.5f else 0.55f)
+                .aspectRatio(1f)
+                .alpha(if (moving) 0.85f else 1f),
+        )
+        if (focused) {
             Text(
                 text = app.label,
+                color = k.textPrimary,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                fontSize = 13.sp,
-                color = Glass.TextPrimary,
-                modifier = Modifier.padding(top = 8.dp),
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
             )
         }
     }
 }
 
-// ---------------------------------------------------------------------------
-// Botón de cristal (menús y ajustes)
-// ---------------------------------------------------------------------------
-
 @Composable
-fun GlassButton(
-    text: String,
+fun RoundIconButton(
+    icon: LineIconKind,
+    description: String,
+    raised: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    selected: Boolean = false,
+    focusRequester: FocusRequester? = null,
+    tintOverride: Color? = null,
 ) {
-    val shape = RoundedCornerShape(12.dp)
-    Surface(
+    val k = LocalK.current
+    Focusable(
         onClick = onClick,
-        modifier = modifier,
-        shape = ClickableSurfaceDefaults.shape(shape),
-        colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (selected) Glass.Accent.copy(alpha = 0.40f) else Glass.Fill,
-            focusedContainerColor = if (selected) Glass.Accent.copy(alpha = 0.60f) else Glass.FillFocused,
-            pressedContainerColor = Glass.FillFocused,
-        ),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.04f),
-        border = glassBorder(shape),
-    ) {
-        Text(
-            text = text,
-            fontSize = 16.sp,
-            color = Glass.TextPrimary,
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+        modifier = modifier
+            .size(50.dp)
+            .semantics { contentDescription = description }
+            .then(if (raised) Modifier.shadow(6.dp, CircleShape, clip = false) else Modifier),
+        shape = CircleShape,
+        background = k.button,
+        backgroundFocused = k.cardFocused,
+        idleBorder = if (raised) k.buttonBorder else Color.Transparent,
+        focusScale = 1.12f,
+        focusRequester = focusRequester,
+    ) { _ ->
+        LineIcon(
+            kind = icon,
+            tint = tintOverride ?: k.textPrimary,
+            modifier = Modifier
+                .align(Alignment.Center)
+                .size(24.dp),
         )
     }
 }
 
-// ---------------------------------------------------------------------------
-// Menú contextual (pulsación larga)
-// ---------------------------------------------------------------------------
-
 @Composable
-fun AppContextMenu(
-    app: AppEntry,
-    isFavorite: Boolean,
-    onDismiss: () -> Unit,
-    onOpen: () -> Unit,
-    onToggleFavorite: () -> Unit,
-    onMoveLeft: () -> Unit,
-    onMoveRight: () -> Unit,
-    onHide: () -> Unit,
-    onInfo: () -> Unit,
-    onUninstall: () -> Unit,
+fun PillButton(
+    text: String,
+    raised: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    icon: LineIconKind? = null,
+    accent: Boolean = false,
+    focusRequester: FocusRequester? = null,
 ) {
-    val shape = RoundedCornerShape(24.dp)
-    val first = remember { FocusRequester() }
-
-    Dialog(onDismissRequest = onDismiss) {
-        LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
-
-        Column(
+    val k = LocalK.current
+    val pill = RoundedCornerShape(50)
+    Focusable(
+        onClick = onClick,
+        modifier = modifier
+            .height(50.dp)
+            .then(if (raised) Modifier.shadow(6.dp, pill, clip = false) else Modifier),
+        shape = pill,
+        background = if (accent) k.accent.copy(alpha = 0.22f) else k.button,
+        backgroundFocused = if (accent) k.accent.copy(alpha = 0.34f) else k.cardFocused,
+        idleBorder = if (accent) k.accent.copy(alpha = 0.6f) else if (raised) k.buttonBorder else Color.Transparent,
+        focusScale = 1.08f,
+        focusRequester = focusRequester,
+    ) { _ ->
+        Row(
             modifier = Modifier
-                .width(380.dp)
-                .clip(shape)
-                .background(Color(0xE60E1322))
-                .glass(shape, Glass.FillStrong)
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+                .align(Alignment.Center)
+                .padding(horizontal = 22.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Text(
-                text = app.label,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Medium,
-                color = Glass.TextPrimary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(bottom = 4.dp),
-            )
-
-            val full = Modifier.fillMaxWidth()
-            GlassButton(stringResource(R.string.menu_open), { onDismiss(); onOpen() }, full.focusRequester(first))
-            GlassButton(
-                text = stringResource(if (isFavorite) R.string.menu_remove_fav else R.string.menu_add_fav),
-                onClick = { onDismiss(); onToggleFavorite() },
-                modifier = full,
-            )
-            if (isFavorite) {
-                GlassButton(stringResource(R.string.menu_move_left), { onMoveLeft() }, full)
-                GlassButton(stringResource(R.string.menu_move_right), { onMoveRight() }, full)
+            if (icon != null) {
+                LineIcon(icon, if (accent) k.accent else k.textPrimary, Modifier.size(20.dp))
             }
-            GlassButton(stringResource(R.string.menu_hide), { onDismiss(); onHide() }, full)
-            GlassButton(stringResource(R.string.menu_info), { onDismiss(); onInfo() }, full)
-            GlassButton(stringResource(R.string.menu_uninstall), { onDismiss(); onUninstall() }, full)
+            Text(
+                text = text,
+                color = if (accent) k.accent else k.textPrimary,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+            )
         }
     }
 }
 
-// ---------------------------------------------------------------------------
-// Barra superior: reloj, fecha, red y ajustes
-// ---------------------------------------------------------------------------
-
-private data class ClockText(val time: String, val date: String)
+// --- Reloj y tiempo ---------------------------------------------------------
 
 @Composable
-private fun rememberClock(use24h: Boolean): State<ClockText> =
-    produceState(ClockText("", ""), use24h) {
-        val locale = Locale.getDefault()
-        val timeFormat = SimpleDateFormat(if (use24h) "HH:mm" else "h:mm a", locale)
-        val datePattern = DateFormat.getBestDateTimePattern(locale, "EEEEdMMMM")
-        val dateFormat = SimpleDateFormat(datePattern, locale)
+fun ClockWidget(use24h: Boolean, modifier: Modifier = Modifier) {
+    val k = LocalK.current
+    val now by produceState(initialValue = Date()) {
         while (true) {
-            val now = Date()
-            value = ClockText(
-                time = timeFormat.format(now),
-                date = dateFormat.format(now).replaceFirstChar { it.titlecase(locale) },
-            )
-            delay(60_000L - (System.currentTimeMillis() % 60_000L) + 50L)
+            value = Date()
+            val cal = Calendar.getInstance()
+            val wait = 60_000L - (cal.get(Calendar.SECOND) * 1000L + cal.get(Calendar.MILLISECOND))
+            delay(wait.coerceIn(500L, 60_000L))
         }
     }
+    val locale = Locale.getDefault()
+    val time = SimpleDateFormat(if (use24h) "HH:mm" else "h:mm", locale).format(now)
+    val dateText = SimpleDateFormat(
+        DateFormat.getBestDateTimePattern(locale, "EEEEdMMMMy"),
+        locale,
+    ).format(now).replaceFirstChar { it.titlecase(locale) }
 
-private enum class NetType { WIFI, ETHERNET, NONE }
+    Column(modifier = modifier, horizontalAlignment = Alignment.End) {
+        Text(
+            text = time,
+            color = k.textPrimary,
+            fontSize = 100.sp,
+            fontWeight = FontWeight.ExtraLight,
+            lineHeight = 104.sp,
+        )
+        Text(
+            text = dateText,
+            color = k.textSecondary,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Light,
+        )
+    }
+}
 
 @Composable
-private fun rememberNetType(): State<NetType> {
-    val context = LocalContext.current
-    val state = remember { mutableStateOf(NetType.NONE) }
-    DisposableEffect(context) {
-        val cm = context.getSystemService(ConnectivityManager::class.java)
-        val callback = object : ConnectivityManager.NetworkCallback() {
-            override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
-                state.value = if (caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)) {
-                    NetType.ETHERNET
-                } else {
-                    NetType.WIFI
+fun WeatherWidget(
+    weather: WeatherData?,
+    cityName: String,
+    modifier: Modifier = Modifier,
+) {
+    val k = LocalK.current
+
+    if (cityName.isBlank()) {
+        Text(
+            text = stringResource(R.string.weather_hint),
+            color = k.textTertiary,
+            fontSize = 16.sp,
+            modifier = modifier,
+        )
+        return
+    }
+    if (weather == null) {
+        Text(text = cityName, color = k.textSecondary, fontSize = 20.sp, modifier = modifier)
+        return
+    }
+
+    Column(modifier = modifier) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            WeatherIcon(
+                kind = weatherKind(weather.code),
+                cloudColor = if (k.isDark) Color(0xFFE3E8F0) else Color(0xFF8A94A6),
+                backdrop = k.bgTop,
+                modifier = Modifier.size(64.dp),
+            )
+            Spacer(Modifier.width(14.dp))
+            Text(
+                text = "${weather.temp}°",
+                color = k.textPrimary,
+                fontSize = 44.sp,
+                fontWeight = FontWeight.Light,
+            )
+            Spacer(Modifier.width(14.dp))
+            Text(
+                text = stringResource(weatherDescription(weather.code)),
+                color = k.textPrimary,
+                fontSize = 30.sp,
+                fontWeight = FontWeight.Light,
+                maxLines = 1,
+            )
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = cityName + "  ·  " + stringResource(R.string.weather_range, weather.max, weather.min, weather.rainPct),
+            color = k.textSecondary,
+            fontSize = 15.sp,
+            maxLines = 1,
+        )
+        Text(
+            text = stringResource(R.string.weather_wind, weather.windKmh, weather.humidity),
+            color = k.textTertiary,
+            fontSize = 15.sp,
+            maxLines = 1,
+        )
+        if (weather.forecast.isNotEmpty()) {
+            Spacer(Modifier.height(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                weather.forecast.take(3).forEach { day ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        WeatherIcon(
+                            kind = weatherKind(day.code),
+                            cloudColor = if (k.isDark) Color(0xFFE3E8F0) else Color(0xFF8A94A6),
+                            backdrop = k.bgTop,
+                            modifier = Modifier.size(22.dp),
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = stringResource(R.string.forecast_day, day.dayName.take(3), day.max),
+                            color = k.textSecondary,
+                            fontSize = 14.sp,
+                            maxLines = 1,
+                        )
+                    }
                 }
             }
-
-            override fun onLost(network: Network) {
-                state.value = NetType.NONE
-            }
         }
-        runCatching { cm.registerDefaultNetworkCallback(callback) }
+    }
+}
+
+// --- Red --------------------------------------------------------------------
+
+data class NetState(val wired: Boolean = false, val wifi: Boolean = false, val vpn: Boolean = false)
+
+@Composable
+fun rememberNetState(): NetState {
+    val context = LocalContext.current
+    var state by remember { mutableStateOf(NetState()) }
+
+    DisposableEffect(context) {
+        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+
+        @Suppress("DEPRECATION")
+        fun compute(): NetState {
+            var wired = false
+            var wifi = false
+            var vpn = false
+            for (network in cm.allNetworks) {
+                val caps = cm.getNetworkCapabilities(network) ?: continue
+                if (caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) vpn = true
+                if (!caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) continue
+                if (caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)) wired = true
+                if (caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) wifi = true
+            }
+            return NetState(wired, wifi, vpn)
+        }
+
+        state = compute()
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) { state = compute() }
+            override fun onLost(network: Network) { state = compute() }
+            override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) { state = compute() }
+        }
+        runCatching { cm.registerNetworkCallback(NetworkRequest.Builder().build(), callback) }
         onDispose { runCatching { cm.unregisterNetworkCallback(callback) } }
     }
     return state
 }
 
+// --- Barra inferior ---------------------------------------------------------
+
 @Composable
-fun TopBar(
-    use24h: Boolean,
+fun BottomBar(
+    raised: Boolean,
+    net: NetState,
+    update: UpdateState,
+    onInputs: () -> Unit,
+    onClean: () -> Unit,
+    onNetwork: () -> Unit,
+    onVpn: () -> Unit,
+    onUpdate: () -> Unit,
     onSettings: () -> Unit,
+    inputsFocus: FocusRequester,
+    settingsFocus: FocusRequester,
     modifier: Modifier = Modifier,
-    updateVersion: String? = null,
-    onUpdate: () -> Unit = {},
 ) {
-    val clock by rememberClock(use24h)
-    val net by rememberNetType()
-
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column {
-            Text(
-                text = clock.time,
-                fontSize = 44.sp,
-                fontWeight = FontWeight.Light,
-                color = Glass.TextPrimary,
-            )
-            Text(
-                text = clock.date,
-                fontSize = 16.sp,
-                color = Glass.TextSecondary,
-            )
-        }
-
-        Spacer(Modifier.weight(1f))
-
-        if (updateVersion != null) {
-            GlassButton(
-                text = stringResource(R.string.update_banner, updateVersion),
-                onClick = onUpdate,
-                selected = true,
-            )
-            Spacer(Modifier.width(16.dp))
-        }
-
+    val k = LocalK.current
+    Box(modifier = modifier.fillMaxWidth()) {
         Row(
-            modifier = Modifier
-                .glass(RoundedCornerShape(50), Glass.Fill)
-                .padding(horizontal = 16.dp, vertical = 10.dp),
+            modifier = Modifier.align(Alignment.CenterStart),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
-                painter = painterResource(
-                    if (net == NetType.ETHERNET) R.drawable.ic_ethernet else R.drawable.ic_wifi,
-                ),
-                contentDescription = null,
-                tint = if (net == NetType.NONE) Glass.TextSecondary.copy(alpha = 0.4f) else Glass.TextPrimary,
-                modifier = Modifier.size(22.dp),
+            RoundIconButton(
+                icon = LineIconKind.MONITOR,
+                description = stringResource(R.string.cd_inputs),
+                raised = raised,
+                onClick = onInputs,
+                focusRequester = inputsFocus,
             )
-            Spacer(Modifier.width(8.dp))
-            Text(
-                text = stringResource(
-                    when (net) {
-                        NetType.WIFI -> R.string.net_wifi
-                        NetType.ETHERNET -> R.string.net_ethernet
-                        NetType.NONE -> R.string.net_none
+            RoundIconButton(
+                icon = LineIconKind.BROOM,
+                description = stringResource(R.string.cd_clean),
+                raised = raised,
+                onClick = onClean,
+            )
+            val netIcon = when {
+                net.wired -> LineIconKind.ETHERNET
+                else -> LineIconKind.WIFI
+            }
+            RoundIconButton(
+                icon = netIcon,
+                description = stringResource(
+                    when {
+                        net.wired -> R.string.net_ethernet
+                        net.wifi -> R.string.net_wifi
+                        else -> R.string.net_none
                     },
                 ),
-                fontSize = 14.sp,
-                color = Glass.TextSecondary,
+                raised = raised,
+                onClick = onNetwork,
+                tintOverride = if (!net.wired && !net.wifi) k.textTertiary else null,
             )
+            if (net.vpn) {
+                RoundIconButton(
+                    icon = LineIconKind.VPN,
+                    description = stringResource(R.string.vpn),
+                    raised = raised,
+                    onClick = onVpn,
+                    tintOverride = k.accent,
+                )
+            }
         }
 
-        Spacer(Modifier.width(16.dp))
-
-        Surface(
-            onClick = onSettings,
-            shape = ClickableSurfaceDefaults.shape(CircleShape),
-            colors = ClickableSurfaceDefaults.colors(
-                containerColor = Glass.Fill,
-                focusedContainerColor = Glass.FillFocused,
-                pressedContainerColor = Glass.FillFocused,
-            ),
-            scale = ClickableSurfaceDefaults.scale(focusedScale = 1.12f),
-            border = glassBorder(CircleShape),
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_settings),
-                contentDescription = stringResource(R.string.settings),
-                tint = Glass.TextPrimary,
-                modifier = Modifier
-                    .padding(12.dp)
-                    .size(24.dp),
+        when (update) {
+            is UpdateState.Available -> PillButton(
+                text = stringResource(R.string.update_banner, update.release.version),
+                raised = raised,
+                onClick = onUpdate,
+                accent = true,
+                modifier = Modifier.align(Alignment.Center),
             )
+            is UpdateState.Downloading -> PillButton(
+                text = stringResource(R.string.update_downloading, update.percent),
+                raised = raised,
+                onClick = onUpdate,
+                accent = true,
+                modifier = Modifier.align(Alignment.Center),
+            )
+            else -> Unit
+        }
+
+        RoundIconButton(
+            icon = LineIconKind.GEAR,
+            description = stringResource(R.string.cd_settings),
+            raised = raised,
+            onClick = onSettings,
+            focusRequester = settingsFocus,
+            modifier = Modifier.align(Alignment.CenterEnd),
+        )
+    }
+}
+
+@Composable
+fun PageDots(count: Int, current: Int, modifier: Modifier = Modifier) {
+    if (count <= 1) return
+    val k = LocalK.current
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        repeat(count) { i ->
+            val selected = i == current
+            Box(
+                Modifier
+                    .height(8.dp)
+                    .width(if (selected) 24.dp else 8.dp)
+                    .clip(CircleShape)
+                    .background(if (selected) k.textPrimary else k.textTertiary),
+            )
+        }
+    }
+}
+
+// --- Menús ------------------------------------------------------------------
+
+data class MenuEntry(val label: String, val onClick: () -> Unit)
+
+/** Diálogo con una lista de acciones; el foco empieza en la primera. */
+@Composable
+fun MenuDialog(title: String, entries: List<MenuEntry>, onDismiss: () -> Unit) {
+    val k = LocalK.current
+    val first = remember { FocusRequester() }
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        RequestFocusOnShow(first)
+        Column(
+            modifier = Modifier
+                .width(360.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(k.panel)
+                .border(1.dp, k.panelBorder, RoundedCornerShape(24.dp))
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = title,
+                color = k.textPrimary,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(start = 6.dp, bottom = 6.dp),
+            )
+            entries.forEachIndexed { index, entry ->
+                Focusable(
+                    onClick = entry.onClick,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    background = k.chip,
+                    backgroundFocused = k.chipSelected,
+                    focusScale = 1.02f,
+                    glow = false,
+                    focusRequester = if (index == 0) first else null,
+                ) { _ ->
+                    Text(
+                        text = entry.label,
+                        color = k.textPrimary,
+                        fontSize = 17.sp,
+                        modifier = Modifier
+                            .align(Alignment.CenterStart)
+                            .padding(horizontal = 16.dp),
+                    )
+                }
+            }
         }
     }
 }

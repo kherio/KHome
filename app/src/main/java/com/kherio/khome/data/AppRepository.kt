@@ -33,30 +33,15 @@ class AppRepository(private val context: Context) {
 
     private fun toEntry(ri: ResolveInfo): AppEntry {
         val info = ri.activityInfo
-        val label = ri.loadLabel(pm).toString()
-        val banner = info.loadBanner(pm) ?: info.applicationInfo.loadBanner(pm)
-        return if (banner != null) {
-            AppEntry(
-                packageName = info.packageName,
-                label = label,
-                activityName = info.name,
-                image = banner.toBitmap(BANNER_W, BANNER_H).asImageBitmap(),
-                isBanner = true,
-            )
-        } else {
-            AppEntry(
-                packageName = info.packageName,
-                label = label,
-                activityName = info.name,
-                image = ri.loadIcon(pm).toBitmap(ICON_SIZE, ICON_SIZE).asImageBitmap(),
-                isBanner = false,
-            )
-        }
+        return AppEntry(
+            packageName = info.packageName,
+            label = ri.loadLabel(pm).toString(),
+            activityName = info.name,
+            icon = ri.loadIcon(pm).toBitmap(ICON_SIZE, ICON_SIZE).asImageBitmap(),
+        )
     }
 
     private companion object {
-        const val BANNER_W = 288
-        const val BANNER_H = 162
-        const val ICON_SIZE = 160
+        const val ICON_SIZE = 192
     }
 }

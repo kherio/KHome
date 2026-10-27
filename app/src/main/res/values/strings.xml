@@ -2,30 +2,89 @@
 <resources>
     <string name="app_name">KHome</string>
 
-    <string name="favorites">Favoritas</string>
-    <string name="all_apps">Todas las apps</string>
+    <!-- Ajustes -->
+    <string name="settings_title">Ajustes de KHome</string>
+    <string name="settings_subtitle">Aspecto, apps, tiempo, sistema y actualizaciones.</string>
+    <string name="sec_appearance">ASPECTO</string>
+    <string name="sec_apps">APPS</string>
+    <string name="sec_weather">TIEMPO</string>
+    <string name="sec_system">SISTEMA</string>
+    <string name="sec_updates">ACTUALIZACIONES</string>
 
-    <string name="settings">Ajustes</string>
-    <string name="columns_per_row">Apps por fila</string>
-    <string name="clock_24h">Reloj de 24 horas</string>
+    <string name="opt_theme">Tema</string>
+    <string name="theme_system">Sistema</string>
+    <string name="theme_light">Claro</string>
+    <string name="theme_dark">Oscuro</string>
+    <string name="opt_background">Fondo</string>
+    <string name="bg_graphite">Grafito</string>
+    <string name="bg_navy">Azul noche</string>
+    <string name="bg_forest">Bosque</string>
+    <string name="bg_wine">Vino</string>
+    <string name="bg_black">Negro</string>
+    <string name="opt_buttons">Botones de abajo</string>
+    <string name="btn_flat">Plano</string>
+    <string name="btn_raised">Relieve</string>
+    <string name="opt_clock">Reloj</string>
+    <string name="clock_12">12 h</string>
+    <string name="clock_24">24 h</string>
+    <string name="opt_per_page">Apps por pantalla</string>
+    <string name="choose_apps">Apps del escritorio</string>
+    <string name="choose_apps_hint">Elige qué apps se ven en el escritorio</string>
+    <string name="apps_count">%1$d de %2$d visibles</string>
+    <string name="app_visible">Visible</string>
+    <string name="app_hidden">Oculta</string>
+    <string name="back">Volver</string>
+    <string name="opt_weather">Mostrar el tiempo</string>
     <string name="yes">Sí</string>
     <string name="no">No</string>
+    <string name="city_current">Ciudad: %1$s</string>
+    <string name="city_none">Ciudad sin elegir</string>
+    <string name="city_hint">Escribe una ciudad</string>
+    <string name="city_search">Buscar ciudad</string>
+    <string name="weather_hint">Elige tu ciudad en Ajustes para ver el tiempo</string>
     <string name="system_settings">Ajustes del sistema</string>
     <string name="choose_launcher">Elegir pantalla de inicio</string>
-    <string name="hidden_apps">Apps ocultas</string>
-    <string name="no_hidden">No hay apps ocultas</string>
-    <string name="show">Mostrar</string>
 
-    <string name="menu_open">Abrir</string>
-    <string name="menu_add_fav">Añadir a favoritas</string>
-    <string name="menu_remove_fav">Quitar de favoritas</string>
-    <string name="menu_move_left">Mover a la izquierda</string>
-    <string name="menu_move_right">Mover a la derecha</string>
+    <!-- Menú de app -->
+    <string name="menu_move">Mover</string>
     <string name="menu_hide">Ocultar</string>
-    <string name="menu_info">Información de la app</string>
+    <string name="menu_close">Cerrar</string>
+    <string name="menu_info">Información</string>
     <string name="menu_uninstall">Desinstalar</string>
+    <string name="move_hint">Mueve con ◀ ▶ · OK para terminar</string>
 
-    <string name="update_title">Actualizaciones</string>
+    <!-- Barra inferior -->
+    <string name="cd_inputs">Entradas</string>
+    <string name="cd_clean">Limpiar memoria</string>
+    <string name="cd_settings">Ajustes</string>
+    <string name="net_wifi">Wi-Fi</string>
+    <string name="net_ethernet">Ethernet</string>
+    <string name="net_none">Sin conexión</string>
+    <string name="vpn">VPN</string>
+    <string name="toast_cleaned">Memoria liberada: %1$d MB</string>
+    <string name="toast_cleaned_zero">Memoria limpiada</string>
+    <string name="toast_no_inputs">No se encontraron entradas</string>
+
+    <!-- Tiempo -->
+    <string name="weather_range">Máx %1$d° · Mín %2$d° · Lluvia %3$d%%</string>
+    <string name="weather_wind">Viento %1$d km/h · Humedad %2$d%%</string>
+    <string name="forecast_day">%1$s %2$d°</string>
+    <string name="w_clear">Despejado</string>
+    <string name="w_mostly_clear">Casi despejado</string>
+    <string name="w_partly_cloudy">Poco nuboso</string>
+    <string name="w_cloudy">Nublado</string>
+    <string name="w_fog">Niebla</string>
+    <string name="w_drizzle">Llovizna</string>
+    <string name="w_rain">Lluvia</string>
+    <string name="w_freezing_rain">Lluvia helada</string>
+    <string name="w_snow">Nieve</string>
+    <string name="w_snow_grains">Granizo fino</string>
+    <string name="w_showers">Chubascos</string>
+    <string name="w_snow_showers">Chubascos de nieve</string>
+    <string name="w_thunder">Tormenta</string>
+    <string name="w_thunder_hail">Tormenta con granizo</string>
+
+    <!-- Actualizaciones -->
     <string name="update_installed">Versión instalada: %1$s</string>
     <string name="update_checking">Buscando actualizaciones…</string>
     <string name="update_uptodate">Estás al día (versión %1$s)</string>
@@ -39,8 +98,4 @@
     <string name="update_err_download">Error al descargar la actualización.</string>
     <string name="update_err_install">No se pudo iniciar la instalación.</string>
     <string name="update_err_perm">Permite instalar apps desde KHome y vuelve a pulsar Descargar e instalar.</string>
-
-    <string name="net_wifi">Wi-Fi</string>
-    <string name="net_ethernet">Ethernet</string>
-    <string name="net_none">Sin conexión</string>
 </resources>

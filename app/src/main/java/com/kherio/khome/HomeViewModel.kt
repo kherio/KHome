@@ -17,6 +17,9 @@ import com.kherio.khome.update.NoApkException
 import com.kherio.khome.update.UpdateChecker
 import com.kherio.khome.update.UpdateError
 import com.kherio.khome.update.UpdateState
+import com.kherio.khome.weather.CityResult
+import com.kherio.khome.weather.WeatherApi
+import com.kherio.khome.weather.WeatherData
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -24,9 +27,13 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 class HomeViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -42,18 +49,43 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     val settings: StateFlow<Settings> =
         prefs.settings.stateIn(viewModelScope, SharingStarted.Eagerly, Settings())
 
+    /** Apps visibles en el orden elegido por el usuario (las nuevas, al final por nombre). */
     val visibleApps: StateFlow<List<AppEntry>> =
-        combine(allApps, settings) { apps, s -> apps.filter { it.packageName !in s.hidden } }
-            .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
-
-    val favorites: StateFlow<List<AppEntry>> =
         combine(allApps, settings) { apps, s ->
-            s.favorites.mapNotNull { pkg -> apps.firstOrNull { it.packageName == pkg } }
+            val rank = s.order.withIndex().associate { it.value to it.index }
+            apps.filter { it.packageName !in s.hidden }
+                .sortedWith(
+                    compareBy<AppEntry> { rank[it.packageName] ?: Int.MAX_VALUE }
+                        .thenBy { it.label.lowercase(Locale.getDefault()) },
+                )
         }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     val hiddenApps: StateFlow<List<AppEntry>> =
         combine(allApps, settings) { apps, s -> apps.filter { it.packageName in s.hidden } }
             .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** Todas las apps instaladas (visibles u ocultas), para elegir cuáles salen en el escritorio. */
+    val installedApps: StateFlow<List<AppEntry>> = allApps
+
+    fun allPackages(): List<String> = allApps.value.map { it.packageName }
+
+    /** Muestra u oculta una app del escritorio. */
+    fun setAppVisible(pkg: String, visible: Boolean) {
+        viewModelScope.launch {
+            val hidden = settings.value.hidden
+            prefs.setHidden(if (visible) hidden - pkg else hidden + pkg)
+        }
+    }
+
+    // --- Tiempo -------------------------------------------------------------
+
+    private val _weather = MutableStateFlow<WeatherData?>(null)
+    val weather: StateFlow<WeatherData?> = _weather
+
+    private val _cityResults = MutableStateFlow<List<CityResult>>(emptyList())
+    val cityResults: StateFlow<List<CityResult>> = _cityResults
+
+    // --- Actualizaciones ----------------------------------------------------
 
     private val _update = MutableStateFlow<UpdateState>(UpdateState.Idle)
     val update: StateFlow<UpdateState> = _update
@@ -69,6 +101,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     init {
         refresh()
         checkForUpdate()
+        startWeatherLoop()
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_PACKAGE_ADDED)
             addAction(Intent.ACTION_PACKAGE_REMOVED)
@@ -86,45 +119,88 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun toggleFavorite(pkg: String) {
+    private fun startWeatherLoop() {
         viewModelScope.launch {
-            val list = settings.value.favorites.toMutableList()
-            if (!list.remove(pkg)) list.add(pkg)
-            prefs.setFavorites(list)
+            settings
+                .map { Triple(it.weatherEnabled, it.lat, it.lon) }
+                .distinctUntilChanged()
+                .collectLatest { (enabled, lat, lon) ->
+                    if (!enabled || (lat == 0.0 && lon == 0.0)) {
+                        _weather.value = null
+                        return@collectLatest
+                    }
+                    while (true) {
+                        val data = runCatching { WeatherApi.fetch(lat, lon) }.getOrNull()
+                        if (data != null) _weather.value = data
+                        delay(if (data != null) 30 * 60_000L else 5 * 60_000L)
+                    }
+                }
         }
     }
 
-    fun moveFavorite(pkg: String, delta: Int) {
+    // --- Apps ---------------------------------------------------------------
+
+    /** Mueve una app [delta] posiciones dentro de la lista visible y guarda el nuevo orden. */
+    fun moveApp(pkg: String, delta: Int) {
         viewModelScope.launch {
-            val list = settings.value.favorites.toMutableList()
+            val list = visibleApps.value.map { it.packageName }.toMutableList()
             val from = list.indexOf(pkg)
             if (from < 0) return@launch
             val to = (from + delta).coerceIn(0, list.lastIndex)
             if (from == to) return@launch
-            list.removeAt(from)
-            list.add(to, pkg)
-            prefs.setFavorites(list)
+            list.add(to, list.removeAt(from))
+            prefs.setOrder(list)
         }
     }
 
     fun hide(pkg: String) {
-        viewModelScope.launch {
-            prefs.setHidden(settings.value.hidden + pkg)
-            prefs.setFavorites(settings.value.favorites - pkg)
-        }
+        viewModelScope.launch { prefs.setHidden(settings.value.hidden + pkg) }
     }
 
     fun unhide(pkg: String) {
         viewModelScope.launch { prefs.setHidden(settings.value.hidden - pkg) }
     }
 
-    fun setColumns(value: Int) {
-        viewModelScope.launch { prefs.setColumns(value) }
+    // --- Ajustes ------------------------------------------------------------
+
+    fun setTheme(value: Int) {
+        viewModelScope.launch { prefs.setTheme(value) }
+    }
+
+    fun setBackground(value: Int) {
+        viewModelScope.launch { prefs.setBackground(value) }
+    }
+
+    fun setRaisedButtons(value: Boolean) {
+        viewModelScope.launch { prefs.setRaisedButtons(value) }
     }
 
     fun setUse24h(value: Boolean) {
         viewModelScope.launch { prefs.setUse24h(value) }
     }
+
+    fun setPerPage(value: Int) {
+        viewModelScope.launch { prefs.setPerPage(value) }
+    }
+
+    fun setWeatherEnabled(value: Boolean) {
+        viewModelScope.launch { prefs.setWeatherEnabled(value) }
+    }
+
+    fun searchCity(query: String) {
+        viewModelScope.launch {
+            _cityResults.value = runCatching { WeatherApi.searchCities(query) }.getOrDefault(emptyList())
+        }
+    }
+
+    fun selectCity(city: CityResult) {
+        viewModelScope.launch {
+            prefs.setCity(city.name, city.lat, city.lon)
+            _cityResults.value = emptyList()
+        }
+    }
+
+    // --- Actualizaciones ----------------------------------------------------
 
     /**
      * Consulta la última Release de GitHub. Al arrancar se hace en silencio (si falla, no se

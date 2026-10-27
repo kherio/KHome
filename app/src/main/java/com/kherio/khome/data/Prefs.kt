@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -15,43 +16,93 @@ import kotlinx.coroutines.flow.map
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "khome_prefs")
 
 data class Settings(
-    val favorites: List<String> = emptyList(),
+    /** Orden personalizado de las apps (nombres de paquete). Las que no estén van al final por nombre. */
+    val order: List<String> = emptyList(),
     val hidden: Set<String> = emptySet(),
-    val columns: Int = 6,
+    /** Tarjetas visibles por pantalla (3 a 6). */
+    val perPage: Int = 4,
     val use24h: Boolean = true,
+    /** 0 = sistema, 1 = claro, 2 = oscuro. */
+    val theme: Int = 2,
+    /** Índice del fondo del tema oscuro. */
+    val background: Int = 0,
+    /** Botones inferiores con relieve (true) o planos (false). */
+    val raisedButtons: Boolean = true,
+    val weatherEnabled: Boolean = true,
+    val cityName: String = "",
+    val lat: Double = 0.0,
+    val lon: Double = 0.0,
 )
 
 class PrefsRepository(private val context: Context) {
 
     private object Keys {
-        val FAVORITES = stringPreferencesKey("favorites")
+        val ORDER = stringPreferencesKey("order")
         val HIDDEN = stringSetPreferencesKey("hidden")
-        val COLUMNS = intPreferencesKey("columns")
+        val PER_PAGE = intPreferencesKey("per_page")
         val USE_24H = booleanPreferencesKey("use_24h")
+        val THEME = intPreferencesKey("theme")
+        val BACKGROUND = intPreferencesKey("background")
+        val RAISED = booleanPreferencesKey("raised_buttons")
+        val WEATHER = booleanPreferencesKey("weather_enabled")
+        val CITY = stringPreferencesKey("city_name")
+        val LAT = doublePreferencesKey("lat")
+        val LON = doublePreferencesKey("lon")
     }
 
     val settings: Flow<Settings> = context.dataStore.data.map { p ->
         Settings(
-            favorites = p[Keys.FAVORITES]?.split(",")?.filter { it.isNotBlank() } ?: emptyList(),
+            order = p[Keys.ORDER]?.split(",")?.filter { it.isNotBlank() } ?: emptyList(),
             hidden = p[Keys.HIDDEN] ?: emptySet(),
-            columns = p[Keys.COLUMNS] ?: 6,
+            perPage = (p[Keys.PER_PAGE] ?: 4).coerceIn(3, 6),
             use24h = p[Keys.USE_24H] ?: true,
+            theme = p[Keys.THEME] ?: 2,
+            background = p[Keys.BACKGROUND] ?: 0,
+            raisedButtons = p[Keys.RAISED] ?: true,
+            weatherEnabled = p[Keys.WEATHER] ?: true,
+            cityName = p[Keys.CITY] ?: "",
+            lat = p[Keys.LAT] ?: 0.0,
+            lon = p[Keys.LON] ?: 0.0,
         )
     }
 
-    suspend fun setFavorites(list: List<String>) {
-        context.dataStore.edit { it[Keys.FAVORITES] = list.joinToString(",") }
+    suspend fun setOrder(list: List<String>) {
+        context.dataStore.edit { it[Keys.ORDER] = list.joinToString(",") }
     }
 
     suspend fun setHidden(set: Set<String>) {
         context.dataStore.edit { it[Keys.HIDDEN] = set }
     }
 
-    suspend fun setColumns(value: Int) {
-        context.dataStore.edit { it[Keys.COLUMNS] = value }
+    suspend fun setPerPage(value: Int) {
+        context.dataStore.edit { it[Keys.PER_PAGE] = value }
     }
 
     suspend fun setUse24h(value: Boolean) {
         context.dataStore.edit { it[Keys.USE_24H] = value }
+    }
+
+    suspend fun setTheme(value: Int) {
+        context.dataStore.edit { it[Keys.THEME] = value }
+    }
+
+    suspend fun setBackground(value: Int) {
+        context.dataStore.edit { it[Keys.BACKGROUND] = value }
+    }
+
+    suspend fun setRaisedButtons(value: Boolean) {
+        context.dataStore.edit { it[Keys.RAISED] = value }
+    }
+
+    suspend fun setWeatherEnabled(value: Boolean) {
+        context.dataStore.edit { it[Keys.WEATHER] = value }
+    }
+
+    suspend fun setCity(name: String, lat: Double, lon: Double) {
+        context.dataStore.edit {
+            it[Keys.CITY] = name
+            it[Keys.LAT] = lat
+            it[Keys.LON] = lon
+        }
     }
 }
