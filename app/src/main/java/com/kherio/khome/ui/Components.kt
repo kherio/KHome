@@ -759,30 +759,5 @@ fun PosterCard(
                 modifier = Modifier.matchParentSize(),
             )
         }
-        if (focused) {
-            Box(
-                Modifier
-                    .matchParentSize()
-                    .background(
-                        Brush.verticalGradient(
-                            0.5f to Color.Transparent,
-                            1f to Color.Black.copy(alpha = 0.78f),
-                        ),
-                    ),
-            )
-            Text(
-                text = title.name,
-                color = Color.White,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .padding(horizontal = 6.dp, vertical = 6.dp),
-            )
-        }
     }
 }
