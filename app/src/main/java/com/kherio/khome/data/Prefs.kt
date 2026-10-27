@@ -32,6 +32,9 @@ data class Settings(
     val cityName: String = "",
     val lat: Double = 0.0,
     val lon: Double = 0.0,
+    /** Apps lanzadas desde KHome, la más reciente primero. */
+    val recent: List<String> = emptyList(),
+    val showRecent: Boolean = true,
 )
 
 class PrefsRepository(private val context: Context) {
@@ -48,6 +51,8 @@ class PrefsRepository(private val context: Context) {
         val CITY = stringPreferencesKey("city_name")
         val LAT = doublePreferencesKey("lat")
         val LON = doublePreferencesKey("lon")
+        val RECENT = stringPreferencesKey("recent")
+        val SHOW_RECENT = booleanPreferencesKey("show_recent")
     }
 
     val settings: Flow<Settings> = context.dataStore.data.map { p ->
@@ -63,6 +68,8 @@ class PrefsRepository(private val context: Context) {
             cityName = p[Keys.CITY] ?: "",
             lat = p[Keys.LAT] ?: 0.0,
             lon = p[Keys.LON] ?: 0.0,
+            recent = p[Keys.RECENT]?.split(",")?.filter { it.isNotBlank() } ?: emptyList(),
+            showRecent = p[Keys.SHOW_RECENT] ?: true,
         )
     }
 
@@ -96,6 +103,14 @@ class PrefsRepository(private val context: Context) {
 
     suspend fun setWeatherEnabled(value: Boolean) {
         context.dataStore.edit { it[Keys.WEATHER] = value }
+    }
+
+    suspend fun setRecent(list: List<String>) {
+        context.dataStore.edit { it[Keys.RECENT] = list.joinToString(",") }
+    }
+
+    suspend fun setShowRecent(value: Boolean) {
+        context.dataStore.edit { it[Keys.SHOW_RECENT] = value }
     }
 
     suspend fun setCity(name: String, lat: Double, lon: Double) {

@@ -58,7 +58,15 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -100,6 +108,7 @@ fun Focusable(
     idleBorder: Color = Color.Transparent,
     focusScale: Float = 1.06f,
     glow: Boolean = true,
+    glowRadius: Dp = 18.dp,
     forceHighlight: Boolean = false,
     focusRequester: FocusRequester? = null,
     onFocusChange: ((Boolean) -> Unit)? = null,
@@ -123,13 +132,23 @@ fun Focusable(
                 focused = it.isFocused
                 onFocusChange?.invoke(it.isFocused)
             }
-            .shadow(
-                elevation = if (highlighted && glow) 18.dp else 0.dp,
-                shape = shape,
-                clip = false,
-                ambientColor = k.accent,
-                spotColor = k.accent,
-            )
+            .drawBehind {
+                // Halo dorado por fuera del borde (no se ve a través del fondo).
+                if (highlighted && glow) {
+                    val step = 4.dp.toPx()
+                    val base = minOf(glowRadius.toPx(), size.minDimension / 2f)
+                    for (i in 1..4) {
+                        val grow = step * i - step / 2f
+                        drawRoundRect(
+                            color = k.accent.copy(alpha = 0.26f / i),
+                            topLeft = Offset(-grow, -grow),
+                            size = Size(size.width + grow * 2, size.height + grow * 2),
+                            cornerRadius = CornerRadius(base + grow),
+                            style = Stroke(width = step),
+                        )
+                    }
+                }
+            }
             .clip(shape)
             .background(if (highlighted) backgroundFocused else background)
             .border(
@@ -150,6 +169,7 @@ fun AppCard(
     onLongClick: () -> Unit,
     modifier: Modifier = Modifier,
     moving: Boolean = false,
+    compact: Boolean = false,
     focusRequester: FocusRequester? = null,
     onFocusChange: ((Boolean) -> Unit)? = null,
 ) {
@@ -157,23 +177,42 @@ fun AppCard(
     Focusable(
         onClick = onClick,
         onLongClick = onLongClick,
-        modifier = modifier.aspectRatio(1.58f),
-        shape = RoundedCornerShape(18.dp),
+        modifier = modifier.aspectRatio(if (compact) 1.8f else 1.58f),
+        shape = RoundedCornerShape(if (compact) 14.dp else 18.dp),
         background = k.card,
         backgroundFocused = k.cardFocused,
         idleBorder = k.cardBorder,
-        focusScale = if (moving) 1.1f else 1.06f,
+        // Sin escalar: ampliar el bitmap lo difumina. El icono crece por layout (nítido).
+        focusScale = 1f,
+        glowRadius = if (compact) 14.dp else 18.dp,
         forceHighlight = moving,
         focusRequester = focusRequester,
         onFocusChange = onFocusChange,
     ) { focused ->
+        val idle = if (compact) 0.52f else 0.55f
+        val big = if (compact) 0.46f else 0.60f
+        val fraction by animateFloatAsState(if (focused) big else idle, tween(160), label = "icon")
+
+        // Resplandor suave detrás del icono al enfocar.
+        if (focused) {
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .background(
+                        Brush.radialGradient(
+                            colors = listOf(k.accent.copy(alpha = 0.20f), Color.Transparent),
+                        ),
+                    ),
+            )
+        }
         Image(
             bitmap = app.icon,
             contentDescription = app.label,
             contentScale = ContentScale.Fit,
+            filterQuality = FilterQuality.High,
             modifier = Modifier
                 .align(Alignment.Center)
-                .fillMaxHeight(if (focused) 0.5f else 0.55f)
+                .fillMaxHeight(fraction)
                 .aspectRatio(1f)
                 .alpha(if (moving) 0.85f else 1f),
         )
@@ -181,7 +220,7 @@ fun AppCard(
             Text(
                 text = app.label,
                 color = k.textPrimary,
-                fontSize = 13.sp,
+                fontSize = if (compact) 11.sp else 13.sp,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -189,7 +228,7 @@ fun AppCard(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                    .padding(horizontal = 8.dp, vertical = if (compact) 3.dp else 6.dp),
             )
         }
     }
@@ -245,7 +284,7 @@ fun PillButton(
         onClick = onClick,
         modifier = modifier
             .height(50.dp)
-            .then(if (raised) Modifier.shadow(6.dp, pill, clip = false) else Modifier),
+            .then(if (raised && !accent) Modifier.shadow(6.dp, pill, clip = false) else Modifier),
         shape = pill,
         background = if (accent) k.accent.copy(alpha = 0.22f) else k.button,
         backgroundFocused = if (accent) k.accent.copy(alpha = 0.34f) else k.cardFocused,
@@ -298,9 +337,9 @@ fun ClockWidget(use24h: Boolean, modifier: Modifier = Modifier) {
         Text(
             text = time,
             color = k.textPrimary,
-            fontSize = 100.sp,
+            fontSize = 88.sp,
             fontWeight = FontWeight.ExtraLight,
-            lineHeight = 104.sp,
+            lineHeight = 92.sp,
         )
         Text(
             text = dateText,

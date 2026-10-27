@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -66,6 +67,7 @@ fun HomeScreen(vm: HomeViewModel) {
     val settings by vm.settings.collectAsState()
     val weather by vm.weather.collectAsState()
     val update by vm.update.collectAsState()
+    val recent by vm.recentApps.collectAsState()
     val net = rememberNetState()
 
     var showSettings by remember { mutableStateOf(false) }
@@ -74,9 +76,14 @@ fun HomeScreen(vm: HomeViewModel) {
     var inputs by remember { mutableStateOf<List<TvInput>?>(null) }
     var focusedIndex by remember { mutableIntStateOf(0) }
     var lastFocusedPkg by remember { mutableStateOf<String?>(null) }
+    var lastFocusedRecent by remember { mutableStateOf(false) }
+    var menuFromRecent by remember { mutableStateOf(false) }
 
     val requesters = remember { HashMap<String, FocusRequester>() }
     fun requesterFor(pkg: String) = requesters.getOrPut(pkg) { FocusRequester() }
+
+    val recentRequesters = remember { HashMap<String, FocusRequester>() }
+    fun recentRequesterFor(pkg: String) = recentRequesters.getOrPut(pkg) { FocusRequester() }
 
     val settingsFocus = remember { FocusRequester() }
     val inputsFocus = remember { FocusRequester() }
@@ -105,7 +112,10 @@ fun HomeScreen(vm: HomeViewModel) {
             val pkg = lastFocusedPkg
             if (pkg != null) {
                 delay(120)
-                runCatching { requesterFor(pkg).requestFocus() }
+                runCatching {
+                    if (lastFocusedRecent) recentRequesterFor(pkg).requestFocus()
+                    else requesterFor(pkg).requestFocus()
+                }
             }
         }
     }
@@ -146,7 +156,7 @@ fun HomeScreen(vm: HomeViewModel) {
     }
 
     KBackground {
-        Column(modifier = Modifier.fillMaxSize().padding(vertical = 28.dp)) {
+        Column(modifier = Modifier.fillMaxSize().padding(vertical = 20.dp)) {
             // Parte alta: tiempo a la izquierda, reloj a la derecha.
             Row(
                 modifier = Modifier
@@ -198,10 +208,17 @@ fun HomeScreen(vm: HomeViewModel) {
                                 if (has) {
                                     focusedIndex = index
                                     lastFocusedPkg = app.packageName
+                                    lastFocusedRecent = false
                                 }
                             },
-                            onClick = { context.launchApp(app) },
-                            onLongClick = { menuApp = app },
+                            onClick = {
+                                vm.recordLaunch(app.packageName)
+                                context.launchApp(app)
+                            },
+                            onLongClick = {
+                                menuFromRecent = false
+                                menuApp = app
+                            },
                             modifier = Modifier
                                 .width(cardWidth)
                                 .onPreviewKeyEvent { e ->
@@ -235,6 +252,50 @@ fun HomeScreen(vm: HomeViewModel) {
                 current = page,
                 modifier = Modifier.align(Alignment.CenterHorizontally),
             )
+
+            if (settings.showRecent && recent.isNotEmpty()) {
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                    val rowCardWidth =
+                        (maxWidth - SidePadding * 2 - CardGap * (perPage - 1)) / perPage * 0.72f
+                    Column {
+                        Text(
+                            text = stringResource(R.string.recent),
+                            color = k.textSecondary,
+                            fontSize = 15.sp,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+                            modifier = Modifier.padding(start = SidePadding + 4.dp, top = 6.dp),
+                        )
+                        LazyRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentPadding = PaddingValues(horizontal = SidePadding, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(CardGap - 4.dp),
+                        ) {
+                            items(recent, key = { it.packageName }) { app ->
+                                AppCard(
+                                    app = app,
+                                    compact = true,
+                                    focusRequester = recentRequesterFor(app.packageName),
+                                    onFocusChange = { has ->
+                                        if (has) {
+                                            lastFocusedPkg = app.packageName
+                                            lastFocusedRecent = true
+                                        }
+                                    },
+                                    onClick = {
+                                        vm.recordLaunch(app.packageName)
+                                        context.launchApp(app)
+                                    },
+                                    onLongClick = {
+                                        menuFromRecent = true
+                                        menuApp = app
+                                    },
+                                    modifier = Modifier.width(rowCardWidth),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
 
             Spacer(Modifier.weight(1f))
 
@@ -286,8 +347,8 @@ fun HomeScreen(vm: HomeViewModel) {
     menuApp?.let { app ->
         MenuDialog(
             title = app.label,
-            entries = listOf(
-                MenuEntry(stringResource(R.string.menu_move)) {
+            entries = listOfNotNull(
+                if (menuFromRecent) null else MenuEntry(stringResource(R.string.menu_move)) {
                     movingPkg = app.packageName
                     menuApp = null
                 },

@@ -175,6 +175,14 @@ fun SettingsPanel(vm: HomeViewModel, modifier: Modifier = Modifier) {
                     )
                 }
 
+                item {
+                    OptionRow(
+                        label = stringResource(R.string.opt_recent),
+                        value = stringResource(if (settings.showRecent) R.string.yes else R.string.no),
+                        onStep = { vm.setShowRecent(!settings.showRecent) },
+                    )
+                }
+
                 // --- Tiempo
                 item { SectionTitle(R.string.sec_weather) }
                 item {

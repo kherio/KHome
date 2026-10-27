@@ -67,6 +67,23 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     /** Todas las apps instaladas (visibles u ocultas), para elegir cuáles salen en el escritorio. */
     val installedApps: StateFlow<List<AppEntry>> = allApps
 
+    /** Apps visibles lanzadas hace poco, la más reciente primero. */
+    val recentApps: StateFlow<List<AppEntry>> =
+        combine(visibleApps, settings) { apps, s ->
+            val byPkg = apps.associateBy { it.packageName }
+            s.recent.mapNotNull { byPkg[it] }.take(10)
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    fun recordLaunch(pkg: String) {
+        viewModelScope.launch {
+            prefs.setRecent((listOf(pkg) + settings.value.recent.filter { it != pkg }).take(12))
+        }
+    }
+
+    fun setShowRecent(value: Boolean) {
+        viewModelScope.launch { prefs.setShowRecent(value) }
+    }
+
     fun allPackages(): List<String> = allApps.value.map { it.packageName }
 
     /** Muestra u oculta una app del escritorio. */

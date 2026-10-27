@@ -27,6 +27,8 @@
     <string name="opt_clock">Reloj</string>
     <string name="clock_12">12 h</string>
     <string name="clock_24">24 h</string>
+    <string name="recent">Recientes</string>
+    <string name="opt_recent">Fila de recientes</string>
     <string name="opt_per_page">Apps por pantalla</string>
     <string name="choose_apps">Apps del escritorio</string>
     <string name="choose_apps_hint">Elige qué apps se ven en el escritorio</string>
