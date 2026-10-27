@@ -51,7 +51,26 @@ fun Context.openWifiSettings() = openSettingsAction(Settings.ACTION_WIFI_SETTING
 
 fun Context.openVpnSettings() = openSettingsAction(Settings.ACTION_VPN_SETTINGS)
 
-fun Context.openBluetoothSettings() = openSettingsAction(Settings.ACTION_BLUETOOTH_SETTINGS)
+/**
+ * Abre los ajustes de Bluetooth del propio Android. En Android TV / Google TV esa pantalla la
+ * ofrece la app de Ajustes de la tele y su nombre varía según el fabricante, así que se prueban
+ * varias rutas, de la más estándar a las específicas; si ninguna existe, abre los Ajustes generales.
+ */
+fun Context.openBluetoothSettings() {
+    val candidates = listOf(
+        Intent(Settings.ACTION_BLUETOOTH_SETTINGS),
+        Intent(Settings.ACTION_BLUETOOTH_SETTINGS).setPackage("com.android.tv.settings"),
+        Intent().setClassName("com.android.tv.settings", "com.android.tv.settings.accessories.AddAccessoryActivity"),
+        Intent().setClassName("com.android.tv.settings", "com.android.tv.settings.accessories.BluetoothAccessoryActivity"),
+        Intent(Settings.ACTION_BLUETOOTH_SETTINGS).setPackage("com.android.settings"),
+        Intent().setClassName("com.android.settings", "com.android.settings.bluetooth.BluetoothSettings"),
+        Intent(Settings.ACTION_SETTINGS),
+    )
+    for (intent in candidates) {
+        val opened = runCatching { startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.isSuccess
+        if (opened) return
+    }
+}
 
 /** Cierra los procesos en segundo plano de una app. */
 fun Context.closeApp(app: AppEntry) {
