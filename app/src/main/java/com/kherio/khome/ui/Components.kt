@@ -800,6 +800,7 @@ fun PosterCard(
     title: com.kherio.khome.news.NewsTitle,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    focusRequester: FocusRequester? = null,
     onFocusChange: ((Boolean) -> Unit)? = null,
 ) {
     val k = LocalK.current
@@ -814,6 +815,7 @@ fun PosterCard(
         focusScale = 1f,
         glowRadius = 12.dp,
         sheen = true,
+        focusRequester = focusRequester,
         onFocusChange = onFocusChange,
     ) { focused ->
         if (image != null) {

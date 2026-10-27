@@ -9,6 +9,8 @@ Launcher (pantalla de inicio) para Android TV / Google TV, nativo en Kotlin + Je
 - **Pulsación larga** (OK mantenido) en una app: mover, ocultar, cerrar, información y desinstalar. El orden se guarda.
 - **Tiempo** (Open-Meteo, sin clave): temperatura, estado, máx/mín, lluvia, viento, humedad y los próximos días. Elige tu ciudad en Ajustes → Tiempo.
 - **Novedades por plataforma** (Netflix, Prime Video, Disney+, Max, Apple TV+, Movistar Plus+, SkyShowtime): una fila de carteles por cada plataforma que tengas instalada. Al elegir un cartel se abre la app de la plataforma (no el título). Usa TMDB y necesita una clave (ver abajo).
+- **Filas generales de TMDB:** tendencias de la semana, próximamente en cines y mejor valoradas. Al elegir un título se abre la app de streaming que hayas elegido en Ajustes (o te pregunta).
+- **Estado de la tele:** IP, conexión, almacenamiento, memoria, versión de Android y modelo, con un test de velocidad de descarga. Se abre con el botón de red o desde Ajustes.
 - Reloj grande con fecha (12/24 h).
 - Botones inferiores: entradas HDMI, estado de red (Ethernet/Wi-Fi/VPN) y ajustes. Estilo plano o con relieve.
 - Temas claro / oscuro / sistema, 11 fondos (uno automático según la hora del día) y 6 colores de acento; tarjetas con icono o banner. Fondo con manchas de color que se mueven despacio o con fondos de películas en tendencia (TMDB). El halo y el fondo se tiñen con el color de la app enfocada. Tipografía Inter (licencia OFL, `FONT_LICENSE_Inter.txt`).

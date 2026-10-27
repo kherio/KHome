@@ -12,6 +12,7 @@ import com.kherio.khome.data.AppEntry
 import com.kherio.khome.data.AppRepository
 import com.kherio.khome.data.PrefsRepository
 import com.kherio.khome.data.Settings
+import com.kherio.khome.news.ExtraRow
 import com.kherio.khome.news.NewsApi
 import com.kherio.khome.news.NewsRow
 import com.kherio.khome.news.NewsTitle
@@ -82,6 +83,14 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             prefs.setRecent((listOf(pkg) + settings.value.recent.filter { it != pkg }).take(12))
         }
+    }
+
+    fun setShowExtras(value: Boolean) {
+        viewModelScope.launch { prefs.setShowExtras(value) }
+    }
+
+    fun setTitleApp(value: String) {
+        viewModelScope.launch { prefs.setTitleApp(value) }
     }
 
     fun setBgMode(value: Int) {
@@ -158,6 +167,48 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    // --- Filas generales de TMDB ---------------------------------------------
+
+    private val extras = MutableStateFlow<Map<String, List<NewsTitle>>>(emptyMap())
+
+    val extraRows: StateFlow<List<ExtraRow>> =
+        combine(settings, extras) { s, data ->
+            if (!s.showExtras || !NewsApi.hasKey) {
+                emptyList()
+            } else {
+                listOfNotNull(
+                    data["trending"]?.takeIf { it.isNotEmpty() }?.let { ExtraRow("trending", R.string.row_trending, it) },
+                    data["upcoming"]?.takeIf { it.isNotEmpty() }?.let { ExtraRow("upcoming", R.string.row_upcoming, it) },
+                    data["top"]?.takeIf { it.isNotEmpty() }?.let { ExtraRow("top", R.string.row_top, it) },
+                )
+            }
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** Apps de streaming instaladas (una por plataforma), para elegir cuál abre los títulos. */
+    val streamingApps: StateFlow<List<AppEntry>> =
+        allApps.map { apps ->
+            PLATFORMS.mapNotNull { p -> apps.firstOrNull { p.matches(it) } }.distinctBy { it.packageName }
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    private fun startExtrasLoop() {
+        if (!NewsApi.hasKey) return
+        viewModelScope.launch {
+            settings.map { it.showExtras }.distinctUntilChanged().collectLatest { enabled ->
+                while (enabled) {
+                    val loaded = mapOf(
+                        "trending" to runCatching { NewsApi.trendingWeek() }.getOrNull(),
+                        "upcoming" to runCatching { NewsApi.upcoming() }.getOrNull(),
+                        "top" to runCatching { NewsApi.topRated() }.getOrNull(),
+                    )
+                    val current = extras.value.toMutableMap()
+                    loaded.forEach { (key, list) -> if (!list.isNullOrEmpty()) current[key] = list }
+                    extras.value = current
+                    delay(6 * 60 * 60_000L)
+                }
+            }
+        }
+    }
+
     private fun startNewsLoop() {
         if (!NewsApi.hasKey) return
         viewModelScope.launch {
@@ -204,6 +255,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         startWeatherLoop()
         startNewsLoop()
         startBackdropLoop()
+        startExtrasLoop()
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_PACKAGE_ADDED)
             addAction(Intent.ACTION_PACKAGE_REMOVED)

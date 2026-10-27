@@ -215,6 +215,12 @@ fun HomeScreen(vm: HomeViewModel) {
     val newsAlpha by animateFloatAsState(if (activeRow == 2) 1f else 0.72f, tween(350), label = "a2")
     var wasMoving by remember { mutableStateOf(false) }
     val backdrops by vm.backdrops.collectAsState()
+    val extraRows by vm.extraRows.collectAsState()
+    val streamingApps by vm.streamingApps.collectAsState()
+    var showStatus by remember { mutableStateOf(false) }
+    var chooseTitleApp by remember { mutableStateOf(false) }
+    val posterRequesters = remember { HashMap<String, FocusRequester>() }
+    var lastPosterKey by remember { mutableStateOf<String?>(null) }
     // Color de la app enfocada: tiñe el halo y el fondo (cambia con una transición suave).
     var focusTint by remember { mutableStateOf(Color.Unspecified) }
     val tintTarget = if (settings.tintByApp && focusTint != Color.Unspecified) focusTint else k.accent
@@ -258,6 +264,25 @@ fun HomeScreen(vm: HomeViewModel) {
                 launchProgress.animateTo(0f, tween(300, easing = FastOutSlowInEasing))
                 launching = null
             }
+        }
+    }
+
+    // Al elegir un título de las filas generales se abre la app de streaming elegida.
+    fun openTitle() {
+        val chosen = streamingApps.firstOrNull { it.packageName == settings.titleApp }
+        when {
+            chosen != null -> startLaunch(chosen, null)
+            streamingApps.isEmpty() ->
+                Toast.makeText(context, R.string.no_streaming, Toast.LENGTH_SHORT).show()
+            streamingApps.size == 1 -> startLaunch(streamingApps[0], null)
+            else -> chooseTitleApp = true
+        }
+    }
+    LaunchedEffect(chooseTitleApp) {
+        val key = lastPosterKey
+        if (!chooseTitleApp && key != null) {
+            delay(120)
+            runCatching { posterRequesters[key]?.requestFocus() }
         }
     }
 
@@ -618,6 +643,41 @@ fun HomeScreen(vm: HomeViewModel) {
                     }
                 }
             }
+            itemsIndexed(extraRows, key = { _, row -> row.key }) { rowIndex, row ->
+                Column(modifier = Modifier.staggeredEntrance(3 + newsRows.size + rowIndex, entranceTick).graphicsLayer { alpha = newsAlpha }) {
+                    Text(
+                        text = stringResource(row.titleRes),
+                        color = k.textSecondary,
+                        fontSize = 15.sp,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+                        modifier = Modifier.padding(start = SidePadding + 4.dp, top = 10.dp),
+                    )
+                    LazyRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(horizontal = SidePadding, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        itemsIndexed(row.titles, key = { _, t -> "${t.id}-${t.name}" }) { titleIndex, title ->
+                            val key = "x:${row.key}:${title.id}"
+                            PosterCard(
+                                title = title,
+                                focusRequester = posterRequesters.getOrPut(key) { FocusRequester() },
+                                modifier = Modifier
+                                    .width(104.dp)
+                                    .edgeBump(key, titleIndex, row.titles.lastIndex),
+                                onFocusChange = { has ->
+                                    if (has) {
+                                        newsFocused = true
+                                        activeRow = 2
+                                        lastPosterKey = key
+                                    }
+                                },
+                                onClick = { openTitle() },
+                            )
+                        }
+                    }
+                }
+            }
             }
             }
 
@@ -633,7 +693,7 @@ fun HomeScreen(vm: HomeViewModel) {
                         inputs = list
                     }
                 },
-                onNetwork = { context.openWifiSettings() },
+                onNetwork = { showStatus = true },
                 onVpn = { context.openVpnSettings() },
                 onUpdate = { showSettings = true },
                 onSettings = { showSettings = true },
@@ -653,7 +713,7 @@ fun HomeScreen(vm: HomeViewModel) {
             enter = slideInHorizontally { it } + fadeIn(),
             exit = slideOutHorizontally { it } + fadeOut(),
         ) {
-            SettingsPanel(vm)
+            SettingsPanel(vm, onOpenStatus = { showStatus = true })
         }
     }
 
@@ -706,6 +766,31 @@ fun HomeScreen(vm: HomeViewModel) {
                 }
             },
             onDismiss = { showHiddenList = false },
+        )
+    }
+
+    // Estado de la tele y test de velocidad.
+    if (showStatus) {
+        StatusDialog(
+            onDismiss = { showStatus = false },
+            onNetworkSettings = {
+                showStatus = false
+                context.openWifiSettings()
+            },
+        )
+    }
+
+    // Elegir en qué app de streaming abrir un título.
+    if (chooseTitleApp) {
+        MenuDialog(
+            title = stringResource(R.string.open_in),
+            entries = streamingApps.map { app ->
+                MenuEntry(app.label) {
+                    chooseTitleApp = false
+                    startLaunch(app, null)
+                }
+            },
+            onDismiss = { chooseTitleApp = false },
         )
     }
 

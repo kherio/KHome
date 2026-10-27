@@ -44,6 +44,9 @@ data class Settings(
     val bgMode: Int = 0,
     /** Teñir el halo y el fondo con el color de la app enfocada. */
     val tintByApp: Boolean = true,
+    val showExtras: Boolean = true,
+    /** Paquete de la app que abre los títulos de las filas generales; vacío = preguntar. */
+    val titleApp: String = "",
 )
 
 class PrefsRepository(private val context: Context) {
@@ -67,6 +70,8 @@ class PrefsRepository(private val context: Context) {
         val SHOW_NEWS = booleanPreferencesKey("show_news")
         val BG_MODE = intPreferencesKey("bg_mode")
         val TINT = booleanPreferencesKey("tint_by_app")
+        val EXTRAS = booleanPreferencesKey("show_extras")
+        val TITLE_APP = stringPreferencesKey("title_app")
     }
 
     val settings: Flow<Settings> = context.dataStore.data.map { p ->
@@ -89,6 +94,8 @@ class PrefsRepository(private val context: Context) {
             showNews = p[Keys.SHOW_NEWS] ?: true,
             bgMode = p[Keys.BG_MODE] ?: 0,
             tintByApp = p[Keys.TINT] ?: true,
+            showExtras = p[Keys.EXTRAS] ?: true,
+            titleApp = p[Keys.TITLE_APP] ?: "",
         )
     }
 
@@ -126,6 +133,14 @@ class PrefsRepository(private val context: Context) {
 
     suspend fun setRecent(list: List<String>) {
         context.dataStore.edit { it[Keys.RECENT] = list.joinToString(",") }
+    }
+
+    suspend fun setShowExtras(value: Boolean) {
+        context.dataStore.edit { it[Keys.EXTRAS] = value }
+    }
+
+    suspend fun setTitleApp(value: String) {
+        context.dataStore.edit { it[Keys.TITLE_APP] = value }
     }
 
     suspend fun setBgMode(value: Int) {

@@ -60,12 +60,13 @@ private fun cycle(value: Int, delta: Int, size: Int) = (value + delta + size) % 
 
 /** Panel lateral de ajustes (entra por la derecha). */
 @Composable
-fun SettingsPanel(vm: HomeViewModel, modifier: Modifier = Modifier) {
+fun SettingsPanel(vm: HomeViewModel, onOpenStatus: () -> Unit = {}, modifier: Modifier = Modifier) {
     val k = LocalK.current
     val context = LocalContext.current
     val settings by vm.settings.collectAsState()
     val update by vm.update.collectAsState()
     val installed by vm.installedApps.collectAsState()
+    val streaming by vm.streamingApps.collectAsState()
     val cityResults by vm.cityResults.collectAsState()
 
     var appsPage by remember { mutableStateOf(false) }
@@ -237,6 +238,23 @@ fun SettingsPanel(vm: HomeViewModel, modifier: Modifier = Modifier) {
                         onStep = { vm.setShowNews(!settings.showNews) },
                     )
                 }
+                item {
+                    OptionRow(
+                        label = stringResource(R.string.opt_extras),
+                        value = stringResource(if (settings.showExtras) R.string.yes else R.string.no),
+                        onStep = { vm.setShowExtras(!settings.showExtras) },
+                    )
+                }
+                item {
+                    val options = listOf("") + streaming.map { it.packageName }
+                    val names = listOf(stringResource(R.string.ask_each)) + streaming.map { it.label }
+                    val current = options.indexOf(settings.titleApp).coerceAtLeast(0)
+                    OptionRow(
+                        label = stringResource(R.string.opt_title_app),
+                        value = names[current],
+                        onStep = { vm.setTitleApp(options[cycle(current, it, options.size)]) },
+                    )
+                }
                 if (!com.kherio.khome.news.NewsApi.hasKey) {
                     item {
                         Text(
@@ -329,6 +347,12 @@ fun SettingsPanel(vm: HomeViewModel, modifier: Modifier = Modifier) {
 
                 // --- Sistema
                 item { SectionTitle(R.string.sec_system) }
+                item {
+                    ActionRow(
+                        label = stringResource(R.string.status_entry),
+                        onClick = onOpenStatus,
+                    )
+                }
                 item {
                     ActionRow(
                         label = stringResource(R.string.system_settings),

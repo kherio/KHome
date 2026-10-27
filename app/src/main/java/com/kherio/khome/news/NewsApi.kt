@@ -30,6 +30,9 @@ data class Platform(
 data class NewsTitle(val id: Int, val name: String, val posterPath: String, val date: String)
 
 @Immutable
+data class ExtraRow(val key: String, val titleRes: Int, val titles: List<NewsTitle>)
+
+@Immutable
 data class NewsRow(val platform: Platform, val app: AppEntry, val titles: List<NewsTitle>)
 
 val PLATFORMS = listOf(
@@ -80,6 +83,37 @@ object NewsApi {
             .distinctBy { it.id to it.name }
             .sortedByDescending { it.date }
             .take(14)
+    }
+
+    /** Filas generales de TMDB: tendencias de la semana, próximos estrenos y mejor valoradas. */
+    suspend fun trendingWeek(): List<NewsTitle> = general("trending/all/week", "")
+
+    suspend fun upcoming(): List<NewsTitle> {
+        val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+        return general("movie/upcoming", "&region=${region()}")
+            .filter { it.date >= today }
+            .sortedBy { it.date }
+    }
+
+    suspend fun topRated(): List<NewsTitle> = general("movie/top_rated", "&region=${region()}")
+
+    private fun region(): String = Locale.getDefault().country.ifBlank { "ES" }
+
+    private suspend fun general(path: String, extra: String): List<NewsTitle> = withContext(Dispatchers.IO) {
+        val language = Locale.getDefault().toLanguageTag()
+        val url = "https://api.themoviedb.org/3/$path?api_key=${BuildConfig.TMDB_KEY}&language=$language$extra"
+        val results = JSONObject(httpGet(url)).optJSONArray("results") ?: return@withContext emptyList()
+        (0 until results.length()).mapNotNull { i ->
+            val r = results.getJSONObject(i)
+            val poster = r.optString("poster_path")
+            if (poster.isBlank() || poster == "null") return@mapNotNull null
+            NewsTitle(
+                id = r.optInt("id"),
+                name = r.optString("title").ifBlank { r.optString("name") },
+                posterPath = poster,
+                date = r.optString("release_date").ifBlank { r.optString("first_air_date") },
+            )
+        }.distinctBy { it.id to it.name }.take(14)
     }
 
     /** Fondos (backdrops) de películas en tendencia esta semana, para el fondo del launcher. */
