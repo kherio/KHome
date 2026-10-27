@@ -6,9 +6,13 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.shrinkVertically
@@ -44,6 +48,10 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.graphics.graphicsLayer
+import kotlinx.coroutines.isActive
+import kotlin.math.abs
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -76,10 +84,11 @@ private val NoAutoScroll = object : BringIntoViewSpec {
  */
 @OptIn(ExperimentalFoundationApi::class)
 private val SmoothSpec = object : BringIntoViewSpec {
-    override val scrollAnimationSpec: AnimationSpec<Float> = tween(420, easing = FastOutSlowInEasing)
+    override val scrollAnimationSpec: AnimationSpec<Float> =
+        spring(dampingRatio = 1f, stiffness = 120f)
 
     override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
-        val margin = containerSize * 0.10f
+        val margin = containerSize * 0.06f
         val leading = offset - margin
         val trailing = offset + size + margin
         return when {
@@ -131,6 +140,12 @@ fun HomeScreen(vm: HomeViewModel) {
     val pageState = rememberLazyListState()
     val newsRows by vm.newsRows.collectAsState()
     var newsFocused by remember { mutableStateOf(false) }
+    // Fila con el foco: 0 apps, 1 recientes, 2 novedades. Las demás se atenúan un poco.
+    var activeRow by remember { mutableIntStateOf(0) }
+    val appsAlpha by animateFloatAsState(if (activeRow == 0) 1f else 0.72f, tween(350), label = "a0")
+    val recentAlpha by animateFloatAsState(if (activeRow == 1) 1f else 0.72f, tween(350), label = "a1")
+    val newsAlpha by animateFloatAsState(if (activeRow == 2) 1f else 0.72f, tween(350), label = "a2")
+    var wasMoving by remember { mutableStateOf(false) }
     val cardGapPx = with(androidx.compose.ui.platform.LocalDensity.current) { CardGap.roundToPx() }
 
     val perPage = settings.perPage.coerceIn(3, 6)
@@ -150,6 +165,7 @@ fun HomeScreen(vm: HomeViewModel) {
     // Desplazamiento propio y suave: una tarjeta cada vez, solo cuando el foco
     // llega al borde. El desplazamiento automático de Compose está desactivado.
     LaunchedEffect(focusedIndex, perPage) {
+        if (movingPkg != null) return@LaunchedEffect
         val first = listState.firstVisibleItemIndex
         val itemSize = listState.layoutInfo.visibleItemsInfo.firstOrNull()?.size ?: return@LaunchedEffect
         val step = (itemSize + cardGapPx).toFloat()
@@ -160,6 +176,26 @@ fun HomeScreen(vm: HomeViewModel) {
         }
         if (delta != 0) {
             listState.animateScrollBy(step * delta, tween(320, easing = FastOutSlowInEasing))
+        }
+    }
+
+    // Al mover una app, la cámara la sigue: se queda en el centro y las vecinas se apartan.
+    LaunchedEffect(movingPkg) {
+        val pkg = movingPkg
+        if (pkg != null) {
+            wasMoving = true
+            while (isActive) {
+                withFrameNanos { }
+                val info = listState.layoutInfo
+                val item = info.visibleItemsInfo.firstOrNull { it.key == pkg } ?: continue
+                val center = (info.viewportStartOffset + info.viewportEndOffset) / 2f
+                val delta = item.offset + item.size / 2f - center
+                if (abs(delta) > 0.5f) listState.scrollBy(delta * 0.18f)
+            }
+        } else if (wasMoving) {
+            wasMoving = false
+            val target = (focusedIndex - perPage / 2).coerceIn(0, maxOf(0, apps.size - perPage))
+            listState.animateScrollToItem(target)
         }
     }
 
@@ -243,7 +279,7 @@ fun HomeScreen(vm: HomeViewModel) {
             }
             }
             item {
-            Column(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.fillMaxWidth().graphicsLayer { alpha = appsAlpha }) {
             if (movingPkg != null) {
                 Text(
                     text = stringResource(R.string.move_hint),
@@ -259,13 +295,19 @@ fun HomeScreen(vm: HomeViewModel) {
             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                 val cardWidth = (maxWidth - SidePadding * 2 - CardGap * (perPage - 1)) / perPage
                 val cardHeight = cardWidth / 1.58f
+                // Al mover, el relleno lateral crece para que cualquier tarjeta pueda quedar centrada.
+                val rowPad by animateDpAsState(
+                    if (movingPkg != null) (maxWidth - cardWidth) / 2 else SidePadding,
+                    tween(380, easing = FastOutSlowInEasing),
+                    label = "pad",
+                )
                 CompositionLocalProvider(LocalBringIntoViewSpec provides NoAutoScroll) {
                 LazyRow(
                     state = listState,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(cardHeight + 56.dp),
-                    contentPadding = PaddingValues(horizontal = SidePadding, vertical = 28.dp),
+                    contentPadding = PaddingValues(horizontal = rowPad, vertical = 28.dp),
                     horizontalArrangement = Arrangement.spacedBy(CardGap),
                 ) {
                     itemsIndexed(apps, key = { _, app -> app.packageName }) { index, app ->
@@ -281,6 +323,7 @@ fun HomeScreen(vm: HomeViewModel) {
                                     lastFocusedPkg = app.packageName
                                     lastFocusedRecent = false
                                     newsFocused = false
+                                    activeRow = 0
                                 }
                             },
                             onClick = {
@@ -292,6 +335,7 @@ fun HomeScreen(vm: HomeViewModel) {
                                 menuApp = app
                             },
                             modifier = Modifier
+                                .animateItem()
                                 .width(cardWidth)
                                 .onPreviewKeyEvent { e ->
                                     val isOk = e.key == Key.DirectionCenter || e.key == Key.Enter ||
@@ -339,7 +383,7 @@ fun HomeScreen(vm: HomeViewModel) {
             }
 
             if (settings.showRecent && recent.isNotEmpty()) item {
-                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth().graphicsLayer { alpha = recentAlpha }) {
                     val rowCardWidth =
                         (maxWidth - SidePadding * 2 - CardGap * (perPage - 1)) / perPage * 0.72f
                     Column {
@@ -366,6 +410,7 @@ fun HomeScreen(vm: HomeViewModel) {
                                             lastFocusedPkg = app.packageName
                                             lastFocusedRecent = true
                                             newsFocused = false
+                                            activeRow = 1
                                         }
                                     },
                                     onClick = {
@@ -385,7 +430,7 @@ fun HomeScreen(vm: HomeViewModel) {
             }
 
             items(newsRows, key = { it.platform.id }) { row ->
-                Column {
+                Column(modifier = Modifier.graphicsLayer { alpha = newsAlpha }) {
                     Text(
                         text = stringResource(R.string.news_title, row.platform.name),
                         color = k.textSecondary,
@@ -402,7 +447,12 @@ fun HomeScreen(vm: HomeViewModel) {
                             PosterCard(
                                 title = title,
                                 modifier = Modifier.width(104.dp),
-                                onFocusChange = { has -> if (has) newsFocused = true },
+                                onFocusChange = { has ->
+                                    if (has) {
+                                        newsFocused = true
+                                        activeRow = 2
+                                    }
+                                },
                                 onClick = { context.launchApp(row.app) },
                             )
                         }
