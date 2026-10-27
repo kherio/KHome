@@ -1,6 +1,7 @@
 package com.kherio.khome.ui
 
 import android.app.ActivityManager
+import android.app.ActivityOptions
 import android.content.Context
 import android.content.Intent
 import android.media.tv.TvContract
@@ -9,11 +10,19 @@ import android.net.Uri
 import android.provider.Settings
 import com.kherio.khome.data.AppEntry
 
-fun Context.launchApp(app: AppEntry) {
+/** Con [fade] la app entra con un fundido (la tarjeta de KHome ya ha ocupado la pantalla). */
+fun Context.launchApp(app: AppEntry, fade: Boolean = false) {
     val intent = Intent(Intent.ACTION_MAIN)
         .setClassName(app.packageName, app.activityName)
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
-    runCatching { startActivity(intent) }
+    runCatching {
+        if (fade) {
+            val options = ActivityOptions.makeCustomAnimation(this, android.R.anim.fade_in, android.R.anim.fade_out)
+            startActivity(intent, options.toBundle())
+        } else {
+            startActivity(intent)
+        }
+    }
 }
 
 fun Context.openAppInfo(app: AppEntry) {

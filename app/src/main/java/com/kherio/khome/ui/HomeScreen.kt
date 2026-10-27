@@ -5,6 +5,21 @@ package com.kherio.khome.ui
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.lerp as lerpColor
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.util.lerp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
+import kotlin.math.roundToInt
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationSpec
@@ -118,6 +133,41 @@ private fun Modifier.staggeredEntrance(order: Int, tick: Int): Modifier {
     }
 }
 
+private data class LaunchInfo(val app: AppEntry, val rect: Rect)
+
+/** La tarjeta de la app crece desde su sitio hasta ocupar toda la pantalla (y vuelve a encogerse). */
+@Composable
+private fun LaunchOverlay(info: LaunchInfo, progress: Float) {
+    val k = LocalK.current
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        val screenW = with(density) { maxWidth.toPx() }
+        val screenH = with(density) { maxHeight.toPx() }
+        val r = info.rect
+        val left = lerp(r.left, 0f, progress)
+        val top = lerp(r.top, 0f, progress)
+        val width = lerp(r.width, screenW, progress)
+        val height = lerp(r.height, screenH, progress)
+        val corner = lerp(18f, 0f, progress)
+        val endColor = lerpColor(k.bgBottom, if (info.app.tint == Color.Unspecified) k.accent else info.app.tint, 0.22f)
+        Box(
+            modifier = Modifier
+                .offset { IntOffset(left.roundToInt(), top.roundToInt()) }
+                .size(with(density) { width.toDp() }, with(density) { height.toDp() })
+                .clip(RoundedCornerShape(corner.dp))
+                .background(lerpColor(k.cardFocused, endColor, progress)),
+        ) {
+            Image(
+                bitmap = info.app.icon,
+                contentDescription = null,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(with(density) { lerp(r.height * 0.72f, screenH * 0.26f, progress).toDp() }),
+            )
+        }
+    }
+}
+
 private val SidePadding = 56.dp
 private val CardGap = 16.dp
 
@@ -169,6 +219,69 @@ fun HomeScreen(vm: HomeViewModel) {
     var focusTint by remember { mutableStateOf(Color.Unspecified) }
     val tintTarget = if (settings.tintByApp && focusTint != Color.Unspecified) focusTint else k.accent
     val bgTint by animateColorAsState(tintTarget, tween(900), label = "bgTint")
+    // --- Transición al abrir una app: la tarjeta se expande y, al volver, se encoge.
+    val boundsApps = remember { HashMap<String, Rect>() }
+    val boundsRecent = remember { HashMap<String, Rect>() }
+    var launching by remember { mutableStateOf<LaunchInfo?>(null) }
+    val launchProgress = remember { Animatable(0f) }
+    var pausedWhileLaunching by remember { mutableStateOf(false) }
+    var resumeTick by remember { mutableIntStateOf(0) }
+
+    LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) {
+        if (launching != null) pausedWhileLaunching = true
+    }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { resumeTick++ }
+    LaunchedEffect(resumeTick) {
+        if (launching != null && pausedWhileLaunching) {
+            pausedWhileLaunching = false
+            launchProgress.animateTo(0f, tween(380, easing = FastOutSlowInEasing))
+            launching = null
+        }
+    }
+
+    fun startLaunch(app: AppEntry, rect: Rect?) {
+        if (launching != null) return
+        vm.recordLaunch(app.packageName)
+        if (rect == null) {
+            context.launchApp(app)
+            return
+        }
+        launching = LaunchInfo(app, rect)
+        pausedWhileLaunching = false
+        scope.launch {
+            launchProgress.snapTo(0f)
+            launchProgress.animateTo(1f, tween(320, easing = FastOutSlowInEasing))
+            context.launchApp(app, fade = true)
+            delay(1600)
+            // Si la app no llegó a abrirse, la tarjeta vuelve a su sitio.
+            if (launching != null && !pausedWhileLaunching) {
+                launchProgress.animateTo(0f, tween(300, easing = FastOutSlowInEasing))
+                launching = null
+            }
+        }
+    }
+
+    // --- Rebote al llegar al final de una fila.
+    val bumpX = remember { Animatable(0f) }
+    var bumpKey by remember { mutableStateOf("") }
+    fun bump(key: String, direction: Float) {
+        scope.launch {
+            bumpKey = key
+            bumpX.snapTo(0f)
+            bumpX.animateTo(direction * 16f, tween(90))
+            bumpX.animateTo(0f, spring(dampingRatio = 0.35f, stiffness = 520f))
+        }
+    }
+    fun Modifier.edgeBump(key: String, index: Int, last: Int): Modifier = this
+        .graphicsLayer { translationX = if (bumpKey == key) bumpX.value else 0f }
+        .onPreviewKeyEvent { e ->
+            if (e.type == KeyEventType.KeyDown && e.nativeKeyEvent.repeatCount == 0) {
+                if (e.key == Key.DirectionRight && index == last) bump(key, 1f)
+                if (e.key == Key.DirectionLeft && index == 0) bump(key, -1f)
+            }
+            false
+        }
+
     // Cada vez que se pulsa Home, las filas vuelven a entrar una tras otra.
     var entranceTick by remember { mutableIntStateOf(0) }
     val cardGapPx = with(androidx.compose.ui.platform.LocalDensity.current) { CardGap.roundToPx() }
@@ -298,7 +411,7 @@ fun HomeScreen(vm: HomeViewModel) {
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
             // Parte alta: tiempo a la izquierda, reloj a la derecha. Es la primera fila de la
             // lista, así que sube y baja con el mismo desplazamiento suave que las demás.
@@ -369,10 +482,7 @@ fun HomeScreen(vm: HomeViewModel) {
                                     focusTint = app.tint
                                 }
                             },
-                            onClick = {
-                                vm.recordLaunch(app.packageName)
-                                context.launchApp(app)
-                            },
+                            onClick = { startLaunch(app, boundsApps[app.packageName]) },
                             onLongClick = {
                                 menuFromRecent = false
                                 menuApp = app
@@ -380,6 +490,8 @@ fun HomeScreen(vm: HomeViewModel) {
                             modifier = Modifier
                                 .animateItem()
                                 .width(cardWidth)
+                                .onGloballyPositioned { boundsApps[app.packageName] = it.boundsInRoot() }
+                                .edgeBump("a:${app.packageName}", index, apps.lastIndex)
                                 .onPreviewKeyEvent { e ->
                                     val isOk = e.key == Key.DirectionCenter || e.key == Key.Enter ||
                                         e.key == Key.NumPadEnter
@@ -435,7 +547,7 @@ fun HomeScreen(vm: HomeViewModel) {
                             color = k.textSecondary,
                             fontSize = 15.sp,
                             fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
-                            modifier = Modifier.padding(start = SidePadding + 4.dp, top = 6.dp),
+                            modifier = Modifier.padding(start = SidePadding + 4.dp, top = 10.dp),
                         )
                         LazyRow(
                             modifier = Modifier.fillMaxWidth(),
@@ -458,15 +570,15 @@ fun HomeScreen(vm: HomeViewModel) {
                                             focusTint = app.tint
                                         }
                                     },
-                                    onClick = {
-                                        vm.recordLaunch(app.packageName)
-                                        context.launchApp(app)
-                                    },
+                                    onClick = { startLaunch(app, boundsRecent[app.packageName]) },
                                     onLongClick = {
                                         menuFromRecent = true
                                         menuApp = app
                                     },
-                                    modifier = Modifier.width(rowCardWidth),
+                                    modifier = Modifier
+                                        .width(rowCardWidth)
+                                        .onGloballyPositioned { boundsRecent[app.packageName] = it.boundsInRoot() }
+                                        .edgeBump("r:${app.packageName}", recent.indexOf(app), recent.lastIndex),
                                 )
                             }
                         }
@@ -481,24 +593,26 @@ fun HomeScreen(vm: HomeViewModel) {
                         color = k.textSecondary,
                         fontSize = 15.sp,
                         fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
-                        modifier = Modifier.padding(start = SidePadding + 4.dp, top = 6.dp),
+                        modifier = Modifier.padding(start = SidePadding + 4.dp, top = 10.dp),
                     )
                     LazyRow(
                         modifier = Modifier.fillMaxWidth(),
                         contentPadding = PaddingValues(horizontal = SidePadding, vertical = 12.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        items(row.titles, key = { "${it.id}-${it.name}" }) { title ->
+                        itemsIndexed(row.titles, key = { _, t -> "${t.id}-${t.name}" }) { titleIndex, title ->
                             PosterCard(
                                 title = title,
-                                modifier = Modifier.width(104.dp),
+                                modifier = Modifier
+                                    .width(104.dp)
+                                    .edgeBump("n:${row.platform.id}:${title.id}", titleIndex, row.titles.lastIndex),
                                 onFocusChange = { has ->
                                     if (has) {
                                         newsFocused = true
                                         activeRow = 2
                                     }
                                 },
-                                onClick = { context.launchApp(row.app) },
+                                onClick = { startLaunch(row.app, null) },
                             )
                         }
                     }
@@ -528,6 +642,9 @@ fun HomeScreen(vm: HomeViewModel) {
                 modifier = Modifier.padding(horizontal = SidePadding),
             )
         }
+
+        // Tarjeta que se expande al abrir una app.
+        launching?.let { LaunchOverlay(it, launchProgress.value) }
 
         // Panel de ajustes por la derecha.
         AnimatedVisibility(
