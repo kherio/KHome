@@ -71,7 +71,7 @@ jobs:
 
       - name: Compilar APK release
         env:
-          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY || vars.TMDB_API_KEY }}
         run: |
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon \
