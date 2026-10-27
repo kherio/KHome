@@ -94,8 +94,10 @@ fun HomeScreen(vm: HomeViewModel) {
     val page = if (apps.isEmpty()) 0 else (focusedIndex.coerceIn(0, apps.lastIndex)) / perPage
 
     // Foco inicial en la primera tarjeta.
+    var initialFocusDone by remember { mutableStateOf(false) }
     LaunchedEffect(apps.isNotEmpty()) {
-        if (apps.isNotEmpty() && lastFocusedPkg == null) {
+        if (apps.isNotEmpty() && lastFocusedPkg == null && !initialFocusDone) {
+            initialFocusDone = true
             delay(150)
             runCatching { requesterFor(apps.first().packageName).requestFocus() }
         }

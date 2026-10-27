@@ -49,6 +49,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -59,6 +60,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
@@ -109,6 +111,7 @@ fun Focusable(
     focusScale: Float = 1.06f,
     glow: Boolean = true,
     glowRadius: Dp = 18.dp,
+    lift: Boolean = false,
     forceHighlight: Boolean = false,
     focusRequester: FocusRequester? = null,
     onFocusChange: ((Boolean) -> Unit)? = null,
@@ -124,6 +127,7 @@ fun Focusable(
 
     Box(
         modifier = base
+            .zIndex(if (highlighted) 1f else 0f)
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
@@ -133,6 +137,18 @@ fun Focusable(
                 onFocusChange?.invoke(it.isFocused)
             }
             .drawBehind {
+                // Sombra suave debajo de los botones con relieve.
+                if (lift && !highlighted) {
+                    val base = minOf(glowRadius.toPx(), size.minDimension / 2f)
+                    for (i in 1..3) {
+                        drawRoundRect(
+                            color = Color.Black.copy(alpha = 0.10f),
+                            topLeft = Offset(-i * 1.2f, 2.dp.toPx() - i * 1.2f + i),
+                            size = Size(size.width + i * 2.4f, size.height + i * 2.4f),
+                            cornerRadius = CornerRadius(base + i * 1.2f),
+                        )
+                    }
+                }
                 // Halo dorado por fuera del borde (no se ve a través del fondo).
                 if (highlighted && glow) {
                     val step = 4.dp.toPx()
@@ -152,7 +168,7 @@ fun Focusable(
             .clip(shape)
             .background(if (highlighted) backgroundFocused else background)
             .border(
-                width = if (highlighted) 2.5.dp else 1.dp,
+                width = if (highlighted) 3.dp else 1.dp,
                 color = if (highlighted) k.accent else idleBorder,
                 shape = shape,
             )
@@ -249,11 +265,12 @@ fun RoundIconButton(
         onClick = onClick,
         modifier = modifier
             .size(50.dp)
-            .semantics { contentDescription = description }
-            .then(if (raised) Modifier.shadow(6.dp, CircleShape, clip = false) else Modifier),
+            .semantics { contentDescription = description },
         shape = CircleShape,
         background = k.button,
-        backgroundFocused = k.cardFocused,
+        backgroundFocused = lerp(k.button, k.accent, 0.40f),
+        glowRadius = 100.dp,
+        lift = raised,
         idleBorder = if (raised) k.buttonBorder else Color.Transparent,
         focusScale = 1.12f,
         focusRequester = focusRequester,
@@ -283,11 +300,12 @@ fun PillButton(
     Focusable(
         onClick = onClick,
         modifier = modifier
-            .height(50.dp)
-            .then(if (raised && !accent) Modifier.shadow(6.dp, pill, clip = false) else Modifier),
+            .height(50.dp),
         shape = pill,
+        glowRadius = 100.dp,
+        lift = raised && !accent,
         background = if (accent) k.accent.copy(alpha = 0.22f) else k.button,
-        backgroundFocused = if (accent) k.accent.copy(alpha = 0.34f) else k.cardFocused,
+        backgroundFocused = if (accent) k.accent.copy(alpha = 0.34f) else lerp(k.button, k.accent, 0.40f),
         idleBorder = if (accent) k.accent.copy(alpha = 0.6f) else if (raised) k.buttonBorder else Color.Transparent,
         focusScale = 1.08f,
         focusRequester = focusRequester,
