@@ -1,6 +1,7 @@
 package com.kherio.khome.data
 
 import androidx.compose.runtime.Immutable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 
 @Immutable
@@ -11,4 +12,6 @@ data class AppEntry(
     val icon: ImageBitmap,
     /** Banner de TV (16:9) si la app lo trae. */
     val banner: ImageBitmap? = null,
+    /** Color dominante del icono (para teñir el halo y el fondo). */
+    val tint: Color = Color.Unspecified,
 )

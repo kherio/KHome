@@ -5,6 +5,8 @@ package com.kherio.khome.ui
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -49,6 +51,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import kotlinx.coroutines.isActive
 import kotlin.math.abs
@@ -100,6 +103,21 @@ private val SmoothSpec = object : BringIntoViewSpec {
     }
 }
 
+/** Entrada escalonada: cada bloque aparece con un fundido y una subida corta, uno tras otro. */
+@Composable
+private fun Modifier.staggeredEntrance(order: Int, tick: Int): Modifier {
+    val progress = remember { Animatable(0f) }
+    LaunchedEffect(tick) {
+        progress.snapTo(0f)
+        delay(order * 90L)
+        progress.animateTo(1f, tween(550, easing = FastOutSlowInEasing))
+    }
+    return graphicsLayer {
+        alpha = progress.value
+        translationY = (1f - progress.value) * 36f
+    }
+}
+
 private val SidePadding = 56.dp
 private val CardGap = 16.dp
 
@@ -146,6 +164,13 @@ fun HomeScreen(vm: HomeViewModel) {
     val recentAlpha by animateFloatAsState(if (activeRow == 1) 1f else 0.72f, tween(350), label = "a1")
     val newsAlpha by animateFloatAsState(if (activeRow == 2) 1f else 0.72f, tween(350), label = "a2")
     var wasMoving by remember { mutableStateOf(false) }
+    val backdrops by vm.backdrops.collectAsState()
+    // Color de la app enfocada: tiñe el halo y el fondo (cambia con una transición suave).
+    var focusTint by remember { mutableStateOf(Color.Unspecified) }
+    val tintTarget = if (settings.tintByApp && focusTint != Color.Unspecified) focusTint else k.accent
+    val bgTint by animateColorAsState(tintTarget, tween(900), label = "bgTint")
+    // Cada vez que se pulsa Home, las filas vuelven a entrar una tras otra.
+    var entranceTick by remember { mutableIntStateOf(0) }
     val cardGapPx = with(androidx.compose.ui.platform.LocalDensity.current) { CardGap.roundToPx() }
 
     val perPage = settings.perPage.coerceIn(3, 6)
@@ -243,7 +268,12 @@ fun HomeScreen(vm: HomeViewModel) {
         }
     }
 
-    LaunchedEffect(Unit) { vm.homePressed.collect { goHome() } }
+    LaunchedEffect(Unit) {
+        vm.homePressed.collect {
+            entranceTick++
+            goHome()
+        }
+    }
 
     // Atrás nunca saca al usuario del launcher.
     BackHandler {
@@ -260,7 +290,7 @@ fun HomeScreen(vm: HomeViewModel) {
         }
     }
 
-    KBackground {
+    KBackground(tint = bgTint, mode = settings.bgMode, backdrops = backdrops) {
         Column(modifier = Modifier.fillMaxSize().padding(vertical = 20.dp)) {
             CompositionLocalProvider(LocalBringIntoViewSpec provides SmoothSpec) {
             LazyColumn(
@@ -275,6 +305,7 @@ fun HomeScreen(vm: HomeViewModel) {
             item {
             Row(
                 modifier = Modifier
+                    .staggeredEntrance(0, entranceTick)
                     .fillMaxWidth()
                     .padding(horizontal = SidePadding),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -289,7 +320,7 @@ fun HomeScreen(vm: HomeViewModel) {
             }
             }
             item {
-            Column(modifier = Modifier.fillMaxWidth().graphicsLayer { alpha = appsAlpha }) {
+            Column(modifier = Modifier.staggeredEntrance(1, entranceTick).fillMaxWidth().graphicsLayer { alpha = appsAlpha }) {
             if (movingPkg != null) {
                 Text(
                     text = stringResource(R.string.move_hint),
@@ -326,6 +357,7 @@ fun HomeScreen(vm: HomeViewModel) {
                             app = app,
                             moving = moving,
                             useBanner = settings.cardStyle == 1,
+                            tintRing = settings.tintByApp,
                             focusRequester = requesterFor(app.packageName),
                             onFocusChange = { has ->
                                 if (has) {
@@ -334,6 +366,7 @@ fun HomeScreen(vm: HomeViewModel) {
                                     lastFocusedRecent = false
                                     newsFocused = false
                                     activeRow = 0
+                                    focusTint = app.tint
                                 }
                             },
                             onClick = {
@@ -393,7 +426,7 @@ fun HomeScreen(vm: HomeViewModel) {
             }
 
             if (settings.showRecent && recent.isNotEmpty()) item {
-                BoxWithConstraints(modifier = Modifier.fillMaxWidth().graphicsLayer { alpha = recentAlpha }) {
+                BoxWithConstraints(modifier = Modifier.staggeredEntrance(2, entranceTick).fillMaxWidth().graphicsLayer { alpha = recentAlpha }) {
                     val rowCardWidth =
                         (maxWidth - SidePadding * 2 - CardGap * (perPage - 1)) / perPage * 0.72f
                     Column {
@@ -414,6 +447,7 @@ fun HomeScreen(vm: HomeViewModel) {
                                     app = app,
                                     compact = true,
                                     useBanner = settings.cardStyle == 1,
+                                    tintRing = settings.tintByApp,
                                     focusRequester = recentRequesterFor(app.packageName),
                                     onFocusChange = { has ->
                                         if (has) {
@@ -421,6 +455,7 @@ fun HomeScreen(vm: HomeViewModel) {
                                             lastFocusedRecent = true
                                             newsFocused = false
                                             activeRow = 1
+                                            focusTint = app.tint
                                         }
                                     },
                                     onClick = {
@@ -439,8 +474,8 @@ fun HomeScreen(vm: HomeViewModel) {
                 }
             }
 
-            items(newsRows, key = { it.platform.id }) { row ->
-                Column(modifier = Modifier.graphicsLayer { alpha = newsAlpha }) {
+            itemsIndexed(newsRows, key = { _, row -> row.platform.id }) { rowIndex, row ->
+                Column(modifier = Modifier.staggeredEntrance(3 + rowIndex, entranceTick).graphicsLayer { alpha = newsAlpha }) {
                     Text(
                         text = stringResource(R.string.news_title, row.platform.name),
                         color = k.textSecondary,

@@ -13,6 +13,7 @@ import android.graphics.RectF
 import android.graphics.drawable.AdaptiveIconDrawable
 import android.graphics.drawable.Drawable
 import android.os.Build
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.graphics.drawable.toBitmap
 import kotlinx.coroutines.Dispatchers
@@ -42,16 +43,44 @@ class AppRepository(private val context: Context) {
 
     private fun toEntry(ri: ResolveInfo): AppEntry {
         val info = ri.activityInfo
+        val iconBitmap = renderIcon(ri.loadIcon(pm))
         return AppEntry(
             packageName = info.packageName,
             label = ri.loadLabel(pm).toString(),
             activityName = info.name,
-            icon = renderIcon(ri.loadIcon(pm)).asImageBitmap(),
+            icon = iconBitmap.asImageBitmap(),
+            tint = dominantColor(iconBitmap),
             banner = runCatching {
                 (info.loadBanner(pm) ?: info.applicationInfo.loadBanner(pm))
                     ?.toBitmap(BANNER_W, BANNER_H)?.asImageBitmap()
             }.getOrNull(),
         )
+    }
+
+    /** Color dominante: media de los píxeles con color (se ignoran transparentes, blancos y negros). */
+    private fun dominantColor(bitmap: Bitmap): Color {
+        val small = Bitmap.createScaledBitmap(bitmap, 24, 24, true)
+        var r = 0f
+        var g = 0f
+        var b = 0f
+        var weight = 0f
+        val hsv = FloatArray(3)
+        for (y in 0 until small.height) {
+            for (x in 0 until small.width) {
+                val px = small.getPixel(x, y)
+                if (android.graphics.Color.alpha(px) < 200) continue
+                android.graphics.Color.colorToHSV(px, hsv)
+                if (hsv[2] < 0.2f || (hsv[1] < 0.15f && hsv[2] > 0.85f)) continue
+                val w = hsv[1] * hsv[2] + 0.02f
+                r += android.graphics.Color.red(px) * w
+                g += android.graphics.Color.green(px) * w
+                b += android.graphics.Color.blue(px) * w
+                weight += w
+            }
+        }
+        if (small !== bitmap) small.recycle()
+        if (weight <= 0.05f) return Color.Unspecified
+        return Color(r / weight / 255f, g / weight / 255f, b / weight / 255f)
     }
 
     /**

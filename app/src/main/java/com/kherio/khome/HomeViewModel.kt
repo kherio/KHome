@@ -84,6 +84,14 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun setBgMode(value: Int) {
+        viewModelScope.launch { prefs.setBgMode(value) }
+    }
+
+    fun setTintByApp(value: Boolean) {
+        viewModelScope.launch { prefs.setTintByApp(value) }
+    }
+
     fun setShowNews(value: Boolean) {
         viewModelScope.launch { prefs.setShowNews(value) }
     }
@@ -127,6 +135,28 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
                 }
             }
         }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    private val _backdrops = MutableStateFlow<List<String>>(emptyList())
+
+    /** Fondos de películas en tendencia; solo se cargan si ese modo de fondo está activo. */
+    val backdrops: StateFlow<List<String>> = _backdrops
+
+    private fun startBackdropLoop() {
+        if (!NewsApi.hasKey) return
+        viewModelScope.launch {
+            settings.map { it.bgMode == 1 }.distinctUntilChanged().collectLatest { enabled ->
+                if (!enabled) {
+                    _backdrops.value = emptyList()
+                    return@collectLatest
+                }
+                while (true) {
+                    val list = runCatching { NewsApi.trendingBackdrops() }.getOrNull()
+                    if (!list.isNullOrEmpty()) _backdrops.value = list
+                    delay(12 * 60 * 60_000L)
+                }
+            }
+        }
+    }
 
     private fun startNewsLoop() {
         if (!NewsApi.hasKey) return
@@ -173,6 +203,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         checkForUpdate()
         startWeatherLoop()
         startNewsLoop()
+        startBackdropLoop()
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_PACKAGE_ADDED)
             addAction(Intent.ACTION_PACKAGE_REMOVED)

@@ -14,7 +14,10 @@ import java.net.URL
 
 /** Cargador de imágenes mínimo con caché en memoria (suficiente para los carteles). */
 private object ImageCache {
-    val cache = LruCache<String, ImageBitmap>(80)
+    // Límite por memoria (40 MB), no por número de imágenes: los fondos pesan bastante más que un cartel.
+    val cache = object : LruCache<String, ImageBitmap>(40 * 1024 * 1024) {
+        override fun sizeOf(key: String, value: ImageBitmap): Int = value.width * value.height * 4
+    }
 
     suspend fun load(url: String): ImageBitmap? {
         cache.get(url)?.let { return it }

@@ -2,7 +2,30 @@
 
 package com.kherio.khome.ui
 
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.TextStyle
+import androidx.tv.material3.ProvideTextStyle
+import kotlinx.coroutines.delay
+import java.util.Calendar
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -45,7 +68,7 @@ data class KColors(
 )
 
 /** Número de fondos disponibles para el tema oscuro (ver strings bg_*). */
-const val BACKGROUND_COUNT = 10
+const val BACKGROUND_COUNT = 11
 
 /** Número de colores de acento (ver strings accent_*). */
 const val ACCENT_COUNT = 6
@@ -59,7 +82,7 @@ private val LightAccents = listOf(
     Color(0xFFD6457A), Color(0xFFE0702A), Color(0xFF3A4250),
 )
 
-fun darkKColors(background: Int, accentIndex: Int = 0): KColors {
+fun darkKColors(background: Int, accentIndex: Int = 0, hour: Int = 12): KColors {
     val (top, bottom) = when (background) {
         0 -> Color(0xFF1B212B) to Color(0xFF262D39) // Grafito
         1 -> Color(0xFF0E1A30) to Color(0xFF18294A) // Azul noche
@@ -70,7 +93,13 @@ fun darkKColors(background: Int, accentIndex: Int = 0): KColors {
         6 -> Color(0xFF2A1B3D) to Color(0xFF5A2A45) // Atardecer
         7 -> Color(0xFF1D1530) to Color(0xFF33214F) // Púrpura
         8 -> Color(0xFF1F1713) to Color(0xFF362820) // Café
-        else -> Color(0xFF0A0F2C) to Color(0xFF1A2260) // Medianoche
+        9 -> Color(0xFF0A0F2C) to Color(0xFF1A2260) // Medianoche
+        else -> when (hour) { // Automático según la hora
+            in 5..7 -> Color(0xFF241B33) to Color(0xFF5B3A4A) // amanecer
+            in 8..16 -> Color(0xFF13243D) to Color(0xFF25476F) // día
+            in 17..19 -> Color(0xFF2A1B3D) to Color(0xFF6A3047) // atardecer
+            else -> Color(0xFF090C1C) to Color(0xFF161C3A) // noche
+        }
     }
     return KColors(
         isDark = true,
@@ -120,7 +149,18 @@ fun KHomeTheme(settings: Settings, content: @Composable () -> Unit) {
         2 -> true
         else -> isSystemInDarkTheme()
     }
-    val colors = if (dark) darkKColors(settings.background, settings.accent) else lightKColors(settings.accent)
+    // La hora solo importa para el fondo automático; se revisa cada pocos minutos.
+    val hour by produceState(initialValue = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)) {
+        while (true) {
+            delay(5 * 60_000L)
+            value = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+        }
+    }
+    val colors = if (dark) {
+        darkKColors(settings.background, settings.accent, hour)
+    } else {
+        lightKColors(settings.accent)
+    }
 
     CompositionLocalProvider(LocalK provides colors) {
         MaterialTheme(
@@ -129,30 +169,97 @@ fun KHomeTheme(settings: Settings, content: @Composable () -> Unit) {
             } else {
                 lightColorScheme(primary = colors.accent, background = colors.bgTop, surface = colors.panel)
             },
-            content = content,
+            content = {
+                ProvideTextStyle(TextStyle(fontFamily = InterFamily)) { content() }
+            },
         )
     }
 }
 
-/** Fondo liso con degradado vertical y una ligera viñeta en el tema oscuro. */
+/**
+ * Fondo vivo: degradado, manchas de color que se mueven muy despacio (teñidas por la app enfocada)
+ * o, si se elige, fondos de películas en tendencia que cambian solos con un fundido.
+ *
+ * [mode]: 0 manchas, 1 películas (TMDB), 2 liso.
+ */
 @Composable
-fun KBackground(content: @Composable BoxScope.() -> Unit) {
+fun KBackground(
+    tint: Color,
+    mode: Int,
+    backdrops: List<String>,
+    content: @Composable BoxScope.() -> Unit,
+) {
     val k = LocalK.current
+    val top by animateColorAsState(k.bgTop, tween(1500), label = "bgTop")
+    val bottom by animateColorAsState(k.bgBottom, tween(1500), label = "bgBottom")
+
+    val phase by rememberInfiniteTransition(label = "bg").animateFloat(
+        initialValue = 0f,
+        targetValue = (2 * PI).toFloat(),
+        animationSpec = infiniteRepeatable(tween(90_000, easing = LinearEasing)),
+        label = "phase",
+    )
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(k.bgTop, k.bgBottom)))
+            .background(Brush.verticalGradient(listOf(top, bottom)))
             .drawBehind {
-                if (k.isDark) {
-                    drawRect(
-                        Brush.radialGradient(
-                            colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.28f)),
-                            center = Offset(size.width / 2f, size.height * 0.55f),
-                            radius = size.maxDimension * 0.75f,
-                        ),
-                    )
+                if (mode == 0 && k.isDark) {
+                    val w = size.width
+                    val h = size.height
+
+                    fun blob(cx: Float, cy: Float, r: Float, color: Color) {
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(color, Color.Transparent),
+                                center = Offset(cx, cy),
+                                radius = r,
+                            ),
+                            radius = r,
+                            center = Offset(cx, cy),
+                        )
+                    }
+                    blob(w * (0.28f + 0.14f * sin(phase)), h * (0.32f + 0.12f * cos(phase)), w * 0.50f, tint.copy(alpha = 0.26f))
+                    blob(w * (0.80f + 0.10f * cos(phase + 1f)), h * (0.70f + 0.14f * sin(phase + 2f)), w * 0.52f, k.accent.copy(alpha = 0.13f))
+                    blob(w * (0.55f + 0.18f * sin(phase * 2f + 3f)), h * (0.10f + 0.08f * cos(phase)), w * 0.40f, tint.copy(alpha = 0.10f))
                 }
             },
-        content = content,
-    )
+    ) {
+        if (mode == 1 && backdrops.isNotEmpty()) {
+            var index by remember { mutableIntStateOf(0) }
+            LaunchedEffect(backdrops) {
+                while (true) {
+                    delay(30_000L)
+                    index = (index + 1) % backdrops.size
+                }
+            }
+            Crossfade(
+                targetState = backdrops[index % backdrops.size],
+                animationSpec = tween(2500),
+                label = "backdrop",
+            ) { url ->
+                val image = rememberRemoteImage(url)
+                if (image != null) {
+                    Image(
+                        bitmap = image,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize().alpha(if (k.isDark) 0.55f else 0.35f),
+                    )
+                }
+            }
+        }
+        // Viñeta y velo para que los iconos y los textos siempre se lean bien.
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = if (k.isDark) 0.32f else 0f)),
+                    ),
+                ),
+        )
+        content()
+    }
 }

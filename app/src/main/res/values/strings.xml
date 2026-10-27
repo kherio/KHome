@@ -26,6 +26,15 @@
     <string name="bg_purple">Púrpura</string>
     <string name="bg_coffee">Café</string>
     <string name="bg_midnight">Medianoche</string>
+    <string name="bg_auto">Automático (según la hora)</string>
+    <string name="opt_bg_mode">Animación del fondo</string>
+    <string name="bgmode_blobs">Manchas</string>
+    <string name="bgmode_movies">Películas</string>
+    <string name="bgmode_flat">Liso</string>
+    <string name="opt_tint">Color según la app</string>
+    <string name="greeting_morning">Buenos días</string>
+    <string name="greeting_afternoon">Buenas tardes</string>
+    <string name="greeting_night">Buenas noches</string>
     <string name="opt_accent">Color de acento</string>
     <string name="accent_gold">Dorado</string>
     <string name="accent_blue">Azul</string>

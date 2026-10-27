@@ -9,7 +9,12 @@ import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.text.format.DateFormat
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
@@ -119,11 +124,14 @@ fun Focusable(
     glowRadius: Dp = 18.dp,
     lift: Boolean = false,
     forceHighlight: Boolean = false,
+    ringColor: Color? = null,
+    sheen: Boolean = false,
     focusRequester: FocusRequester? = null,
     onFocusChange: ((Boolean) -> Unit)? = null,
     content: @Composable BoxScope.(focused: Boolean) -> Unit,
 ) {
     val k = LocalK.current
+    val ring by animateColorAsState(ringColor ?: k.accent, tween(500), label = "ring")
     var focused by remember { mutableStateOf(false) }
     var longFired by remember { mutableStateOf(false) }
     val highlighted = focused || forceHighlight
@@ -173,7 +181,7 @@ fun Focusable(
                     for (i in 1..4) {
                         val grow = step * i - step / 2f
                         drawRoundRect(
-                            color = k.accent.copy(alpha = 0.26f * p / i),
+                            color = ring.copy(alpha = 0.26f * p / i),
                             topLeft = Offset(-grow, -grow),
                             size = Size(size.width + grow * 2, size.height + grow * 2),
                             cornerRadius = CornerRadius(base + grow),
@@ -184,9 +192,24 @@ fun Focusable(
             }
             .clip(shape)
             .background(lerp(background, backgroundFocused, p))
+            .then(
+                if (sheen) {
+                    // Reflejo de luz muy sutil en la esquina superior izquierda.
+                    Modifier.background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                Color.White.copy(alpha = if (k.isDark) 0.10f + 0.07f * p else 0.0f),
+                                Color.Transparent,
+                            ),
+                        ),
+                    )
+                } else {
+                    Modifier
+                },
+            )
             .border(
-                width = (1f + 2f * p).dp,
-                color = lerp(idleBorder, k.accent, p),
+                width = (0.8f + 2.2f * p).dp,
+                color = lerp(idleBorder, ring, p),
                 shape = shape,
             )
             .then(
@@ -233,6 +256,7 @@ fun AppCard(
     moving: Boolean = false,
     compact: Boolean = false,
     useBanner: Boolean = false,
+    tintRing: Boolean = false,
     focusRequester: FocusRequester? = null,
     onFocusChange: ((Boolean) -> Unit)? = null,
 ) {
@@ -249,6 +273,8 @@ fun AppCard(
         focusScale = 1f,
         glowRadius = if (compact) 14.dp else 18.dp,
         forceHighlight = moving,
+        ringColor = if (tintRing && app.tint != Color.Unspecified) app.tint else null,
+        sheen = true,
         focusRequester = focusRequester,
         onFocusChange = onFocusChange,
     ) { focused ->
@@ -314,7 +340,7 @@ fun RoundIconButton(
             .size(50.dp)
             .semantics { contentDescription = description },
         shape = CircleShape,
-        background = k.button,
+        background = if (raised) k.button else Color.Transparent,
         backgroundFocused = lerp(k.button, k.accent, 0.40f),
         glowRadius = 100.dp,
         lift = raised,
@@ -324,7 +350,7 @@ fun RoundIconButton(
     ) { _ ->
         LineIcon(
             kind = icon,
-            tint = tintOverride ?: k.textPrimary,
+            tint = tintOverride ?: if (raised) k.textPrimary else k.textSecondary,
             modifier = Modifier
                 .align(Alignment.Center)
                 .size(24.dp),
@@ -351,7 +377,7 @@ fun PillButton(
         shape = pill,
         glowRadius = 100.dp,
         lift = raised && !accent,
-        background = if (accent) k.accent.copy(alpha = 0.22f) else k.button,
+        background = if (accent) k.accent.copy(alpha = 0.22f) else if (raised) k.button else Color.Transparent,
         backgroundFocused = if (accent) k.accent.copy(alpha = 0.34f) else lerp(k.button, k.accent, 0.40f),
         idleBorder = if (accent) k.accent.copy(alpha = 0.6f) else if (raised) k.buttonBorder else Color.Transparent,
         focusScale = 1.08f,
@@ -392,7 +418,23 @@ fun ClockWidget(use24h: Boolean, modifier: Modifier = Modifier) {
         }
     }
     val locale = Locale.getDefault()
-    val time = SimpleDateFormat(if (use24h) "HH:mm" else "h:mm", locale).format(now)
+    val hours = SimpleDateFormat(if (use24h) "HH" else "h", locale).format(now)
+    val minutes = SimpleDateFormat("mm", locale).format(now)
+    val hourOfDay = Calendar.getInstance().apply { time = now }.get(Calendar.HOUR_OF_DAY)
+    val greeting = stringResource(
+        when (hourOfDay) {
+            in 6..12 -> R.string.greeting_morning
+            in 13..20 -> R.string.greeting_afternoon
+            else -> R.string.greeting_night
+        },
+    )
+    // Los dos puntos laten despacio.
+    val colonAlpha by rememberInfiniteTransition(label = "colon").animateFloat(
+        initialValue = 1f,
+        targetValue = 0.25f,
+        animationSpec = infiniteRepeatable(tween(1100, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "colonAlpha",
+    )
     val dateText = SimpleDateFormat(
         DateFormat.getBestDateTimePattern(locale, "EEEEdMMMMy"),
         locale,
@@ -400,12 +442,35 @@ fun ClockWidget(use24h: Boolean, modifier: Modifier = Modifier) {
 
     Column(modifier = modifier, horizontalAlignment = Alignment.End) {
         Text(
-            text = time,
-            color = k.textPrimary,
-            fontSize = 88.sp,
-            fontWeight = FontWeight.ExtraLight,
-            lineHeight = 92.sp,
+            text = greeting,
+            color = k.accent,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Medium,
         )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = hours,
+                color = k.textPrimary,
+                fontSize = 88.sp,
+                fontWeight = FontWeight.ExtraLight,
+                lineHeight = 92.sp,
+            )
+            Text(
+                text = ":",
+                color = k.textPrimary,
+                fontSize = 88.sp,
+                fontWeight = FontWeight.ExtraLight,
+                lineHeight = 92.sp,
+                modifier = Modifier.alpha(colonAlpha),
+            )
+            Text(
+                text = minutes,
+                color = k.textPrimary,
+                fontSize = 88.sp,
+                fontWeight = FontWeight.ExtraLight,
+                lineHeight = 92.sp,
+            )
+        }
         Text(
             text = dateText,
             color = k.textSecondary,
@@ -748,6 +813,7 @@ fun PosterCard(
         idleBorder = k.cardBorder,
         focusScale = 1f,
         glowRadius = 12.dp,
+        sheen = true,
         onFocusChange = onFocusChange,
     ) { focused ->
         if (image != null) {

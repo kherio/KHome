@@ -11,7 +11,7 @@ Launcher (pantalla de inicio) para Android TV / Google TV, nativo en Kotlin + Je
 - **Novedades por plataforma** (Netflix, Prime Video, Disney+, Max, Apple TV+, Movistar Plus+, SkyShowtime): una fila de carteles por cada plataforma que tengas instalada. Al elegir un cartel se abre la app de la plataforma (no el título). Usa TMDB y necesita una clave (ver abajo).
 - Reloj grande con fecha (12/24 h).
 - Botones inferiores: entradas HDMI, estado de red (Ethernet/Wi-Fi/VPN) y ajustes. Estilo plano o con relieve.
-- Temas claro / oscuro / sistema, 10 fondos y 6 colores de acento; tarjetas con icono o banner.
+- Temas claro / oscuro / sistema, 11 fondos (uno automático según la hora del día) y 6 colores de acento; tarjetas con icono o banner. Fondo con manchas de color que se mueven despacio o con fondos de películas en tendencia (TMDB). El halo y el fondo se tiñen con el color de la app enfocada. Tipografía Inter (licencia OFL, `FONT_LICENSE_Inter.txt`).
 - **Actualizador integrado:** detecta nuevas releases de GitHub y se instala desde la propia app.
 - El botón Atrás no cierra el launcher; pulsar Home estando en KHome vuelve al inicio.
 

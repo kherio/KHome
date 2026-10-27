@@ -140,11 +140,31 @@ fun SettingsPanel(vm: HomeViewModel, modifier: Modifier = Modifier) {
                         stringResource(R.string.bg_purple),
                         stringResource(R.string.bg_coffee),
                         stringResource(R.string.bg_midnight),
+                        stringResource(R.string.bg_auto),
                     )
                     OptionRow(
                         label = stringResource(R.string.opt_background),
                         value = names[settings.background.coerceIn(0, BACKGROUND_COUNT - 1)],
                         onStep = { vm.setBackground(cycle(settings.background, it, BACKGROUND_COUNT)) },
+                    )
+                }
+                item {
+                    val names = listOf(
+                        stringResource(R.string.bgmode_blobs),
+                        stringResource(R.string.bgmode_movies),
+                        stringResource(R.string.bgmode_flat),
+                    )
+                    OptionRow(
+                        label = stringResource(R.string.opt_bg_mode),
+                        value = names[settings.bgMode.coerceIn(0, 2)],
+                        onStep = { vm.setBgMode(cycle(settings.bgMode, it, 3)) },
+                    )
+                }
+                item {
+                    OptionRow(
+                        label = stringResource(R.string.opt_tint),
+                        value = stringResource(if (settings.tintByApp) R.string.yes else R.string.no),
+                        onStep = { vm.setTintByApp(!settings.tintByApp) },
                     )
                 }
                 item {
@@ -267,7 +287,7 @@ fun SettingsPanel(vm: HomeViewModel, modifier: Modifier = Modifier) {
                                 value = query,
                                 onValueChange = { query = it },
                                 singleLine = true,
-                                textStyle = TextStyle(color = k.textPrimary, fontSize = 17.sp),
+                                textStyle = TextStyle(color = k.textPrimary, fontSize = 17.sp, fontFamily = InterFamily),
                                 cursorBrush = SolidColor(k.accent),
                                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                                 keyboardActions = KeyboardActions(onSearch = { vm.searchCity(query) }),

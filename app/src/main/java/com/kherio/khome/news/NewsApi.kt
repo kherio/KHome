@@ -82,6 +82,18 @@ object NewsApi {
             .take(14)
     }
 
+    /** Fondos (backdrops) de películas en tendencia esta semana, para el fondo del launcher. */
+    suspend fun trendingBackdrops(): List<String> = withContext(Dispatchers.IO) {
+        val language = Locale.getDefault().toLanguageTag()
+        val url = "https://api.themoviedb.org/3/trending/movie/week" +
+            "?api_key=${BuildConfig.TMDB_KEY}&language=$language"
+        val results = JSONObject(httpGet(url)).optJSONArray("results") ?: return@withContext emptyList()
+        (0 until results.length()).mapNotNull { i ->
+            val path = results.getJSONObject(i).optString("backdrop_path")
+            if (path.isBlank() || path == "null") null else "https://image.tmdb.org/t/p/w780$path"
+        }.take(12)
+    }
+
     private fun httpGet(url: String): String {
         val conn = (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = 10_000

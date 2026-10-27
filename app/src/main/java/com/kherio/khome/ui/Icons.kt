@@ -1,6 +1,15 @@
 package com.kherio.khome.ui
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.translate
+import kotlin.math.PI
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -52,12 +61,30 @@ fun WeatherIcon(
     backdrop: Color,
     modifier: Modifier = Modifier,
 ) {
+    // Animaciones sencillas: el sol gira despacio, las nubes flotan y la lluvia/nieve cae.
+    val transition = rememberInfiniteTransition(label = "weather")
+    val t by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(3600, easing = LinearEasing)),
+        label = "t",
+    )
+    val spin by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(tween(40_000, easing = LinearEasing)),
+        label = "spin",
+    )
     Canvas(modifier) {
         val s = size.minDimension / 24f
+        val bob = sin(t * 2f * PI.toFloat()) * 0.6f
         scale(s, s, Offset.Zero) {
             val st = Stroke(width = 1.6f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+            translate(0f, if (kind == WeatherKind.CLEAR) 0f else bob) {
             when (kind) {
-                WeatherKind.CLEAR -> drawSun(SunColor, st, 12f, 12f, 4.2f, 7f, 9.5f)
+                WeatherKind.CLEAR -> rotate(spin, Offset(12f, 12f)) {
+                    drawSun(SunColor, st, 12f, 12f, 4.2f, 7f, 9.5f)
+                }
 
                 WeatherKind.PARTLY -> {
                     drawSun(SunColor, st, 8.5f, 8.5f, 3f, 5f, 7f)
@@ -74,16 +101,25 @@ fun WeatherIcon(
 
                 WeatherKind.RAIN -> {
                     drawCloud(cloudColor, st, null, 0f, -3f, 1f)
-                    for (x in listOf(8f, 12f, 16f)) {
-                        drawLine(RainColor, Offset(x, 18f), Offset(x - 1f, 21.5f), st.width, StrokeCap.Round)
+                    listOf(8f, 12f, 16f).forEachIndexed { i, x ->
+                        val f = (t + i / 3f) % 1f
+                        val dy = f * 2.5f
+                        drawLine(
+                            RainColor.copy(alpha = 1f - f * 0.8f),
+                            Offset(x - dy * 0.2f, 17.5f + dy),
+                            Offset(x - 1f - dy * 0.2f, 20.5f + dy),
+                            st.width,
+                            StrokeCap.Round,
+                        )
                     }
                 }
 
                 WeatherKind.SNOW -> {
                     drawCloud(cloudColor, st, null, 0f, -3f, 1f)
-                    drawCircle(cloudColor, 1.1f, Offset(8f, 19f))
-                    drawCircle(cloudColor, 1.1f, Offset(12f, 21f))
-                    drawCircle(cloudColor, 1.1f, Offset(16f, 19f))
+                    listOf(8f to 19f, 12f to 21f, 16f to 19f).forEachIndexed { i, (x, y) ->
+                        val f = (t + i / 3f) % 1f
+                        drawCircle(cloudColor.copy(alpha = 1f - f * 0.7f), 1.1f, Offset(x + sin(f * 6.28f) * 0.5f, y - 1.5f + f * 2.5f))
+                    }
                 }
 
                 WeatherKind.STORM -> {
@@ -94,8 +130,9 @@ fun WeatherIcon(
                         lineTo(13f, 19.5f)
                         lineTo(11f, 23f)
                     }
-                    drawPath(bolt, SunColor, style = st)
+                    drawPath(bolt, SunColor.copy(alpha = if (t < 0.15f || (t in 0.3f..0.4f)) 1f else 0.55f), style = st)
                 }
+            }
             }
         }
     }

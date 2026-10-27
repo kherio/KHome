@@ -27,7 +27,7 @@ data class Settings(
     /** Índice del fondo del tema oscuro. */
     val background: Int = 0,
     /** Botones inferiores con relieve (true) o planos (false). */
-    val raisedButtons: Boolean = true,
+    val raisedButtons: Boolean = false,
     val weatherEnabled: Boolean = true,
     val cityName: String = "",
     val lat: Double = 0.0,
@@ -40,6 +40,10 @@ data class Settings(
     /** 0 = icono, 1 = banner de TV cuando la app lo tiene. */
     val cardStyle: Int = 0,
     val showNews: Boolean = true,
+    /** 0 manchas animadas, 1 fondos de películas (TMDB), 2 liso. */
+    val bgMode: Int = 0,
+    /** Teñir el halo y el fondo con el color de la app enfocada. */
+    val tintByApp: Boolean = true,
 )
 
 class PrefsRepository(private val context: Context) {
@@ -61,6 +65,8 @@ class PrefsRepository(private val context: Context) {
         val ACCENT = intPreferencesKey("accent")
         val CARD_STYLE = intPreferencesKey("card_style")
         val SHOW_NEWS = booleanPreferencesKey("show_news")
+        val BG_MODE = intPreferencesKey("bg_mode")
+        val TINT = booleanPreferencesKey("tint_by_app")
     }
 
     val settings: Flow<Settings> = context.dataStore.data.map { p ->
@@ -71,7 +77,7 @@ class PrefsRepository(private val context: Context) {
             use24h = p[Keys.USE_24H] ?: true,
             theme = p[Keys.THEME] ?: 2,
             background = p[Keys.BACKGROUND] ?: 0,
-            raisedButtons = p[Keys.RAISED] ?: true,
+            raisedButtons = p[Keys.RAISED] ?: false,
             weatherEnabled = p[Keys.WEATHER] ?: true,
             cityName = p[Keys.CITY] ?: "",
             lat = p[Keys.LAT] ?: 0.0,
@@ -81,6 +87,8 @@ class PrefsRepository(private val context: Context) {
             accent = p[Keys.ACCENT] ?: 0,
             cardStyle = p[Keys.CARD_STYLE] ?: 0,
             showNews = p[Keys.SHOW_NEWS] ?: true,
+            bgMode = p[Keys.BG_MODE] ?: 0,
+            tintByApp = p[Keys.TINT] ?: true,
         )
     }
 
@@ -118,6 +126,14 @@ class PrefsRepository(private val context: Context) {
 
     suspend fun setRecent(list: List<String>) {
         context.dataStore.edit { it[Keys.RECENT] = list.joinToString(",") }
+    }
+
+    suspend fun setBgMode(value: Int) {
+        context.dataStore.edit { it[Keys.BG_MODE] = value }
+    }
+
+    suspend fun setTintByApp(value: Boolean) {
+        context.dataStore.edit { it[Keys.TINT] = value }
     }
 
     suspend fun setShowNews(value: Boolean) {
