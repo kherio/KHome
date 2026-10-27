@@ -48,6 +48,8 @@
     <string name="choose_launcher">Elegir pantalla de inicio</string>
 
     <!-- Menú de app -->
+    <string name="menu_show_hidden">Mostrar apps ocultas (%1$d)</string>
+    <string name="hidden_title">Apps ocultas</string>
     <string name="menu_move">Mover</string>
     <string name="menu_hide">Ocultar</string>
     <string name="menu_close">Cerrar</string>

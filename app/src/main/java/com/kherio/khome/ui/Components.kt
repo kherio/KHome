@@ -47,6 +47,11 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.lerp
@@ -119,6 +124,7 @@ fun Focusable(
 ) {
     val k = LocalK.current
     var focused by remember { mutableStateOf(false) }
+    var longFired by remember { mutableStateOf(false) }
     val highlighted = focused || forceHighlight
     val scale by animateFloatAsState(if (highlighted) focusScale else 1f, tween(140), label = "scale")
 
@@ -171,6 +177,35 @@ fun Focusable(
                 width = if (highlighted) 3.dp else 1.dp,
                 color = if (highlighted) k.accent else idleBorder,
                 shape = shape,
+            )
+            .then(
+                if (onLongClick != null) {
+                    // Pulsación larga con el mando: OK mantenido genera repeticiones de tecla.
+                    Modifier.onPreviewKeyEvent { e ->
+                        val isOk = e.key == Key.DirectionCenter || e.key == Key.Enter ||
+                            e.key == Key.NumPadEnter
+                        if (!isOk) return@onPreviewKeyEvent false
+                        when (e.type) {
+                            KeyEventType.KeyDown -> {
+                                if (e.nativeKeyEvent.repeatCount == 0) {
+                                    longFired = false
+                                } else if (!longFired) {
+                                    longFired = true
+                                    onLongClick()
+                                }
+                                true
+                            }
+                            KeyEventType.KeyUp -> {
+                                if (!longFired) onClick()
+                                longFired = false
+                                true
+                            }
+                            else -> false
+                        }
+                    }
+                } else {
+                    Modifier
+                },
             )
             .combinedClickable(onClick = onClick, onLongClick = onLongClick),
         content = { content(highlighted) },

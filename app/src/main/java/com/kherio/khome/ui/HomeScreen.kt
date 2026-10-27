@@ -77,6 +77,8 @@ fun HomeScreen(vm: HomeViewModel) {
     val weather by vm.weather.collectAsState()
     val update by vm.update.collectAsState()
     val recent by vm.recentApps.collectAsState()
+    val hiddenApps by vm.hiddenApps.collectAsState()
+    var showHiddenList by remember { mutableStateOf(false) }
     val net = rememberNetState()
 
     var showSettings by remember { mutableStateOf(false) }
@@ -123,8 +125,8 @@ fun HomeScreen(vm: HomeViewModel) {
     }
 
     // Devuelve el foco a la última tarjeta cuando se cierra un menú.
-    LaunchedEffect(menuApp == null) {
-        if (menuApp == null) {
+    LaunchedEffect(menuApp == null, showHiddenList) {
+        if (menuApp == null && !showHiddenList) {
             val pkg = lastFocusedPkg
             if (pkg != null) {
                 delay(120)
@@ -376,6 +378,12 @@ fun HomeScreen(vm: HomeViewModel) {
                     menuApp = null
                     goHome()
                 },
+                if (hiddenApps.isEmpty()) null else MenuEntry(
+                    stringResource(R.string.menu_show_hidden, hiddenApps.size),
+                ) {
+                    menuApp = null
+                    showHiddenList = true
+                },
                 MenuEntry(stringResource(R.string.menu_close)) {
                     context.closeApp(app)
                     menuApp = null
@@ -390,6 +398,20 @@ fun HomeScreen(vm: HomeViewModel) {
                 },
             ),
             onDismiss = { menuApp = null },
+        )
+    }
+
+    // Lista de apps ocultas para volver a mostrarlas.
+    if (showHiddenList) {
+        MenuDialog(
+            title = stringResource(R.string.hidden_title),
+            entries = hiddenApps.map { hidden ->
+                MenuEntry(hidden.label) {
+                    vm.unhide(hidden.packageName)
+                    showHiddenList = false
+                }
+            },
+            onDismiss = { showHiddenList = false },
         )
     }
 
