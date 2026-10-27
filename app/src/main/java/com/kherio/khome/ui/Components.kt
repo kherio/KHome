@@ -701,8 +701,29 @@ fun MenuDialog(title: String, entries: List<MenuEntry>, onDismiss: () -> Unit) {
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         RequestFocusOnShow(first)
+        // El menú se abre mientras OK sigue pulsado: hasta que se suelte, ese OK no debe activar nada.
+        var armed by remember { mutableStateOf(false) }
         Column(
             modifier = Modifier
+                .onPreviewKeyEvent { e ->
+                    val isOk = e.key == Key.DirectionCenter || e.key == Key.Enter ||
+                        e.key == Key.NumPadEnter
+                    if (!isOk || armed) return@onPreviewKeyEvent false
+                    when (e.type) {
+                        KeyEventType.KeyDown ->
+                            if (e.nativeKeyEvent.repeatCount > 0) {
+                                true // repetición de la pulsación larga que abrió el menú
+                            } else {
+                                armed = true // pulsación nueva: funciona con normalidad
+                                false
+                            }
+                        KeyEventType.KeyUp -> {
+                            armed = true // se suelta el OK de la pulsación larga
+                            true
+                        }
+                        else -> false
+                    }
+                }
                 .width(360.dp)
                 .clip(RoundedCornerShape(24.dp))
                 .background(k.panel)
