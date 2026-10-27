@@ -253,7 +253,7 @@ fun AppCard(
         onFocusChange = onFocusChange,
     ) { focused ->
         val idle = if (compact) 0.52f else 0.55f
-        val big = if (compact) 0.46f else 0.60f
+        val big = if (compact) 0.58f else 0.66f
         val fraction by animateFloatAsState(
             if (focused) big else idle,
             tween(220, easing = FastOutSlowInEasing),
@@ -268,31 +268,6 @@ fun AppCard(
                 filterQuality = FilterQuality.High,
                 modifier = Modifier.matchParentSize(),
             )
-            if (focused) {
-                Box(
-                    Modifier
-                        .matchParentSize()
-                        .background(
-                            Brush.verticalGradient(
-                                0.55f to Color.Transparent,
-                                1f to Color.Black.copy(alpha = 0.65f),
-                            ),
-                        ),
-                )
-                Text(
-                    text = app.label,
-                    color = Color.White,
-                    fontSize = if (compact) 11.sp else 13.sp,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = if (compact) 3.dp else 6.dp),
-                )
-            }
             return@Focusable
         }
 
@@ -319,21 +294,6 @@ fun AppCard(
                 .aspectRatio(1f)
                 .alpha(if (moving) 0.85f else 1f),
         )
-        if (focused) {
-            Text(
-                text = app.label,
-                color = k.textPrimary,
-                fontSize = if (compact) 11.sp else 13.sp,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = if (compact) 3.dp else 6.dp),
-            )
-        }
     }
 }
 
