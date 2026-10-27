@@ -267,6 +267,8 @@ fun TopBar(
     use24h: Boolean,
     onSettings: () -> Unit,
     modifier: Modifier = Modifier,
+    updateVersion: String? = null,
+    onUpdate: () -> Unit = {},
 ) {
     val clock by rememberClock(use24h)
     val net by rememberNetType()
@@ -290,6 +292,15 @@ fun TopBar(
         }
 
         Spacer(Modifier.weight(1f))
+
+        if (updateVersion != null) {
+            GlassButton(
+                text = stringResource(R.string.update_banner, updateVersion),
+                onClick = onUpdate,
+                selected = true,
+            )
+            Spacer(Modifier.width(16.dp))
+        }
 
         Row(
             modifier = Modifier

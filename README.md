@@ -10,6 +10,7 @@ Launcher (pantalla de inicio) para Android TV / Google TV con estética **glassm
 - Reloj y fecha, indicador de Wi-Fi / Ethernet y botón de ajustes.
 - Ajustes: apps por fila (5–8), reloj 12/24 h, gestión de apps ocultas, acceso a los ajustes del sistema y al selector de pantalla de inicio.
 - Se actualiza solo al instalar o desinstalar apps.
+- **Actualizador integrado:** detecta nuevas releases de GitHub y se instala desde la propia app.
 - El botón Atrás no cierra el launcher; pulsar Home estando en KHome vuelve arriba.
 
 ## Compilar
@@ -54,8 +55,34 @@ adb shell pm enable com.google.android.apps.tv.launcherx
 
 Alternativa sin desactivar nada: abre KHome a mano o remapea un botón del mando con una app como TVQuickActions.
 
+## Publicar una release
+
+El workflow `Release` compila el APK firmado y lo adjunta a una Release de GitHub. Hay dos formas de lanzarlo:
+
+- **Desde la web de GitHub, sin tocar nada en local:** Actions → *Release* → *Run workflow* → escribe la versión (por ejemplo `0.2.0`).
+- **Con un tag:** al subir un tag con formato `vX.Y.Z`.
+
+```
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+La versión interna se calcula a partir del número (`0.2.0` → código `200`), así que cada release debe ser mayor que la anterior.
+
+## Actualizaciones dentro de la app
+
+- Al abrir KHome consulta en segundo plano la última Release del repo. Si hay una versión más nueva, aparece un botón **Actualización X.Y.Z** junto al reloj.
+- En **Ajustes → Actualizaciones** puedes buscar a mano, ver la versión instalada y pulsar **Descargar e instalar**.
+- La descarga es solo por HTTPS desde GitHub y se verifica con el SHA-256 de la release cuando GitHub lo facilita. Después, el instalador del sistema pide confirmación y actualiza conservando tus datos.
+- La primera vez, Android te pedirá permitir a KHome instalar apps desconocidas.
+
+### Firma
+
+Para que una actualización se instale sobre la anterior, todos los APK deben ir firmados con la misma clave. Por defecto se usa `app/debug.keystore`, incluida en el repo. Es cómoda, pero al ser pública cualquiera podría firmar un APK con la misma clave. Si quieres evitarlo, crea tu propia keystore y guarda estos secrets en el repo (Settings → Secrets and variables → Actions): `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS` y `KEY_PASSWORD`. El workflow de release los usará solos. Ojo: cambiar la clave una vez publicada una versión obliga a desinstalar e instalar de nuevo.
+
 ## Estructura
 
+- `update/`: comprobación de versión, descarga con verificación e instalación.
 - `data/`: lectura de apps instaladas y preferencias (DataStore).
 - `HomeViewModel.kt`: estado, favoritas, ocultas y refresco al instalar/desinstalar.
 - `ui/Theme.kt`: paleta y utilidades de cristal (`Modifier.glass`, `GlassBackground`).

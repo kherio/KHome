@@ -37,6 +37,7 @@ import com.kherio.khome.HomeViewModel
 import com.kherio.khome.R
 import com.kherio.khome.data.AppEntry
 import com.kherio.khome.data.Settings
+import com.kherio.khome.update.UpdateState
 
 @Composable
 fun HomeScreen(vm: HomeViewModel) {
@@ -44,6 +45,7 @@ fun HomeScreen(vm: HomeViewModel) {
     val apps by vm.visibleApps.collectAsStateWithLifecycle()
     val favorites by vm.favorites.collectAsStateWithLifecycle()
     val hiddenApps by vm.hiddenApps.collectAsStateWithLifecycle()
+    val update by vm.update.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
     val gridState = rememberLazyGridState()
@@ -69,6 +71,10 @@ fun HomeScreen(vm: HomeViewModel) {
                 onColumns = vm::setColumns,
                 onUse24h = vm::setUse24h,
                 onUnhide = vm::unhide,
+                update = update,
+                installedVersion = vm.installedVersion,
+                onCheckUpdate = { vm.checkForUpdate(manual = true) },
+                onInstallUpdate = vm::installUpdate,
             )
         } else {
             Column(
@@ -79,6 +85,8 @@ fun HomeScreen(vm: HomeViewModel) {
                 TopBar(
                     use24h = settings.use24h,
                     onSettings = { showSettings = true },
+                    updateVersion = (update as? UpdateState.Available)?.release?.version,
+                    onUpdate = { showSettings = true },
                 )
 
                 Spacer(Modifier.height(16.dp))

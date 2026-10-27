@@ -25,6 +25,21 @@
     <string name="menu_info">Información de la app</string>
     <string name="menu_uninstall">Desinstalar</string>
 
+    <string name="update_title">Actualizaciones</string>
+    <string name="update_installed">Versión instalada: %1$s</string>
+    <string name="update_checking">Buscando actualizaciones…</string>
+    <string name="update_uptodate">Estás al día (versión %1$s)</string>
+    <string name="update_available">Nueva versión disponible: %1$s</string>
+    <string name="update_downloading">Descargando… %1$d %%</string>
+    <string name="update_check">Buscar actualizaciones</string>
+    <string name="update_install">Descargar e instalar</string>
+    <string name="update_banner">Actualización %1$s</string>
+    <string name="update_err_network">No se pudo comprobar. Revisa la conexión.</string>
+    <string name="update_err_noapk">La última versión no incluye un APK.</string>
+    <string name="update_err_download">Error al descargar la actualización.</string>
+    <string name="update_err_install">No se pudo iniciar la instalación.</string>
+    <string name="update_err_perm">Permite instalar apps desde KHome y vuelve a pulsar Descargar e instalar.</string>
+
     <string name="net_wifi">Wi-Fi</string>
     <string name="net_ethernet">Ethernet</string>
     <string name="net_none">Sin conexión</string>

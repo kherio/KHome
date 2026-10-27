@@ -12,3 +12,5 @@ app/build/
 *.aab
 *.jks
 *.keystore
+# Keystore de firma fija del proyecto (necesaria para que las actualizaciones se instalen encima)
+!app/debug.keystore

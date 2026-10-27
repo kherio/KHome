@@ -1,0 +1,89 @@
+name: Release
+
+# Publica una Release con el APK firmado. Se lanza de dos formas:
+#  1) Subiendo un tag con formato vX.Y.Z (por ejemplo v0.2.0).
+#  2) A mano desde GitHub: Actions -> Release -> Run workflow, indicando la versión (0.2.0).
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Versión a publicar, sin la v (por ejemplo 0.2.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Calcular versión
+        id: ver
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            VERSION="$INPUT_VERSION"
+          else
+            VERSION="$REF_NAME"
+          fi
+          VERSION="${VERSION#v}"
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Versión no válida: '$VERSION'. Usa el formato X.Y.Z"
+            exit 1
+          fi
+          IFS=. read -r MAJOR MINOR PATCH <<< "$VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "code=$((MAJOR * 10000 + MINOR * 100 + PATCH))" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # Opcional: si defines estos secrets en el repo, se firma con tu propia keystore.
+      # Si no existen, se usa app/debug.keystore (firma fija del proyecto).
+      - name: Keystore propia (opcional)
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            {
+              echo "KEYSTORE_PATH=$RUNNER_TEMP/release.jks"
+              echo "KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
+              echo "KEY_ALIAS=$KEY_ALIAS"
+              echo "KEY_PASSWORD=$KEY_PASSWORD"
+            } >> "$GITHUB_ENV"
+          fi
+
+      - name: Compilar APK release
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon \
+            -PversionName=${{ steps.ver.outputs.version }} \
+            -PversionCode=${{ steps.ver.outputs.code }}
+
+      - name: Preparar APK
+        run: cp app/build/outputs/apk/release/app-release.apk "KHome-v${{ steps.ver.outputs.version }}.apk"
+
+      - name: Publicar Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.ver.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          name: KHome v${{ steps.ver.outputs.version }}
+          generate_release_notes: true
+          files: KHome-v${{ steps.ver.outputs.version }}.apk

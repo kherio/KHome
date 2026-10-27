@@ -29,6 +29,8 @@ import androidx.tv.material3.Text
 import com.kherio.khome.R
 import com.kherio.khome.data.AppEntry
 import com.kherio.khome.data.Settings
+import com.kherio.khome.update.UpdateError
+import com.kherio.khome.update.UpdateState
 
 @Composable
 fun SettingsScreen(
@@ -37,6 +39,10 @@ fun SettingsScreen(
     onColumns: (Int) -> Unit,
     onUse24h: (Boolean) -> Unit,
     onUnhide: (String) -> Unit,
+    update: UpdateState,
+    installedVersion: String,
+    onCheckUpdate: () -> Unit,
+    onInstallUpdate: () -> Unit,
 ) {
     val context = LocalContext.current
     val first = remember { FocusRequester() }
@@ -54,6 +60,15 @@ fun SettingsScreen(
                 fontSize = 34.sp,
                 fontWeight = FontWeight.Light,
                 color = Glass.TextPrimary,
+            )
+        }
+
+        item {
+            UpdatePanel(
+                update = update,
+                installedVersion = installedVersion,
+                onCheck = onCheckUpdate,
+                onInstall = onInstallUpdate,
             )
         }
 
@@ -113,6 +128,54 @@ fun SettingsScreen(
                     Text(app.label, fontSize = 16.sp, color = Glass.TextPrimary)
                     GlassButton(stringResource(R.string.show), { onUnhide(app.packageName) })
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun UpdatePanel(
+    update: UpdateState,
+    installedVersion: String,
+    onCheck: () -> Unit,
+    onInstall: () -> Unit,
+) {
+    val status = when (update) {
+        UpdateState.Idle -> stringResource(R.string.update_installed, installedVersion)
+        UpdateState.Checking -> stringResource(R.string.update_checking)
+        UpdateState.UpToDate -> stringResource(R.string.update_uptodate, installedVersion)
+        is UpdateState.Available -> stringResource(R.string.update_available, update.release.version)
+        is UpdateState.Downloading -> stringResource(R.string.update_downloading, update.percent)
+        is UpdateState.Failed -> stringResource(
+            when (update.error) {
+                UpdateError.NETWORK -> R.string.update_err_network
+                UpdateError.NO_APK -> R.string.update_err_noapk
+                UpdateError.DOWNLOAD -> R.string.update_err_download
+                UpdateError.INSTALL -> R.string.update_err_install
+                UpdateError.PERMISSION -> R.string.update_err_perm
+            },
+        )
+    }
+    val canInstall = update is UpdateState.Available ||
+        (update is UpdateState.Failed && update.release != null)
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .glass(RoundedCornerShape(20.dp))
+            .padding(horizontal = 24.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.update_title),
+            fontSize = 16.sp,
+            color = Glass.TextSecondary,
+        )
+        Text(text = status, fontSize = 18.sp, color = Glass.TextPrimary)
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            GlassButton(stringResource(R.string.update_check), onCheck)
+            if (canInstall) {
+                GlassButton(stringResource(R.string.update_install), onInstall, selected = true)
             }
         }
     }

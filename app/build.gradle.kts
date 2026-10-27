@@ -4,6 +4,10 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// La versión se puede inyectar desde CI: -PversionName=0.2.0 -PversionCode=200
+val appVersionName: String = (project.findProperty("versionName") as String?) ?: "0.1.0"
+val appVersionCode: Int = (project.findProperty("versionCode") as String?)?.toIntOrNull() ?: 1
+
 android {
     namespace = "com.kherio.khome"
     compileSdk = 34
@@ -12,13 +16,37 @@ android {
         applicationId = "com.kherio.khome"
         minSdk = 24
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = appVersionCode
+        versionName = appVersionName
+    }
+
+    // Firma estable: así cada APK nuevo se instala "encima" del anterior (actualización).
+    // En CI se puede usar tu propia keystore con las variables de entorno KEYSTORE_PATH,
+    // KEYSTORE_PASSWORD, KEY_ALIAS y KEY_PASSWORD; si no existen, se usa app/debug.keystore.
+    signingConfigs {
+        create("khome") {
+            val keystorePath = System.getenv("KEYSTORE_PATH")
+            if (!keystorePath.isNullOrBlank()) {
+                storeFile = file(keystorePath)
+                storePassword = System.getenv("KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("KEY_ALIAS")
+                keyPassword = System.getenv("KEY_PASSWORD")
+            } else {
+                storeFile = file("debug.keystore")
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
     }
 
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("khome")
+        }
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("khome")
         }
     }
 
