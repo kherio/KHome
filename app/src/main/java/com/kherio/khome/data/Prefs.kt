@@ -39,6 +39,7 @@ data class Settings(
     val accent: Int = 0,
     /** 0 = icono, 1 = banner de TV cuando la app lo tiene. */
     val cardStyle: Int = 0,
+    val showNews: Boolean = true,
 )
 
 class PrefsRepository(private val context: Context) {
@@ -59,6 +60,7 @@ class PrefsRepository(private val context: Context) {
         val SHOW_RECENT = booleanPreferencesKey("show_recent")
         val ACCENT = intPreferencesKey("accent")
         val CARD_STYLE = intPreferencesKey("card_style")
+        val SHOW_NEWS = booleanPreferencesKey("show_news")
     }
 
     val settings: Flow<Settings> = context.dataStore.data.map { p ->
@@ -78,6 +80,7 @@ class PrefsRepository(private val context: Context) {
             showRecent = p[Keys.SHOW_RECENT] ?: true,
             accent = p[Keys.ACCENT] ?: 0,
             cardStyle = p[Keys.CARD_STYLE] ?: 0,
+            showNews = p[Keys.SHOW_NEWS] ?: true,
         )
     }
 
@@ -115,6 +118,10 @@ class PrefsRepository(private val context: Context) {
 
     suspend fun setRecent(list: List<String>) {
         context.dataStore.edit { it[Keys.RECENT] = list.joinToString(",") }
+    }
+
+    suspend fun setShowNews(value: Boolean) {
+        context.dataStore.edit { it[Keys.SHOW_NEWS] = value }
     }
 
     suspend fun setAccent(value: Int) {

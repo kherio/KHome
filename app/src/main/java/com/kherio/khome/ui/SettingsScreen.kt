@@ -210,6 +210,24 @@ fun SettingsPanel(vm: HomeViewModel, modifier: Modifier = Modifier) {
                     )
                 }
 
+                item {
+                    OptionRow(
+                        label = stringResource(R.string.opt_news),
+                        value = stringResource(if (settings.showNews) R.string.yes else R.string.no),
+                        onStep = { vm.setShowNews(!settings.showNews) },
+                    )
+                }
+                if (!com.kherio.khome.news.NewsApi.hasKey) {
+                    item {
+                        Text(
+                            stringResource(R.string.news_no_key),
+                            color = k.textTertiary,
+                            fontSize = 13.sp,
+                            modifier = Modifier.padding(horizontal = 6.dp),
+                        )
+                    }
+                }
+
                 // --- Tiempo
                 item { SectionTitle(R.string.sec_weather) }
                 item {
@@ -346,6 +364,14 @@ fun SettingsPanel(vm: HomeViewModel, modifier: Modifier = Modifier) {
                             accent = true,
                         )
                     }
+                }
+                item {
+                    Text(
+                        stringResource(R.string.tmdb_credit),
+                        color = k.textTertiary,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 12.dp),
+                    )
                 }
                 item { Spacer(Modifier.height(24.dp)) }
             }

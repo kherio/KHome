@@ -18,6 +18,10 @@ android {
         targetSdk = 34
         versionCode = appVersionCode
         versionName = appVersionName
+
+        // Clave de TMDB para las novedades. En CI llega del secreto TMDB_API_KEY; si falta, no hay filas.
+        val tmdbKey = System.getenv("TMDB_API_KEY") ?: (project.findProperty("tmdbKey") as String?) ?: ""
+        buildConfigField("String", "TMDB_KEY", "\"$tmdbKey\"")
     }
 
     // Firma estable: así cada APK nuevo se instala "encima" del anterior (actualización).
@@ -61,6 +65,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

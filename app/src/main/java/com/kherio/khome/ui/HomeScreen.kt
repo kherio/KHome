@@ -8,7 +8,9 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
@@ -24,6 +26,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.items
@@ -103,6 +106,9 @@ fun HomeScreen(vm: HomeViewModel) {
     val settingsFocus = remember { FocusRequester() }
     val inputsFocus = remember { FocusRequester() }
     val listState = rememberLazyListState()
+    val pageState = rememberLazyListState()
+    val newsRows by vm.newsRows.collectAsState()
+    var newsFocused by remember { mutableStateOf(false) }
     val cardGapPx = with(androidx.compose.ui.platform.LocalDensity.current) { CardGap.roundToPx() }
 
     val perPage = settings.perPage.coerceIn(3, 6)
@@ -161,7 +167,9 @@ fun HomeScreen(vm: HomeViewModel) {
         movingPkg = null
         inputs = null
         focusedIndex = 0
+        newsFocused = false
         scope.launch {
+            pageState.animateScrollToItem(0)
             listState.animateScrollToItem(0)
             apps.firstOrNull()?.let { runCatching { requesterFor(it.packageName).requestFocus() } }
         }
@@ -186,7 +194,12 @@ fun HomeScreen(vm: HomeViewModel) {
 
     KBackground {
         Column(modifier = Modifier.fillMaxSize().padding(vertical = 20.dp)) {
-            // Parte alta: tiempo a la izquierda, reloj a la derecha.
+            // Parte alta: tiempo a la izquierda, reloj a la derecha (se oculta al bajar a las novedades).
+            AnimatedVisibility(
+                visible = !newsFocused,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically(),
+            ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -201,9 +214,17 @@ fun HomeScreen(vm: HomeViewModel) {
                 }
                 ClockWidget(use24h = settings.use24h)
             }
+            }
 
-            Spacer(Modifier.weight(1f))
-
+            LazyColumn(
+                state = pageState,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
+            ) {
+            item {
+            Column(modifier = Modifier.fillMaxWidth()) {
             if (movingPkg != null) {
                 Text(
                     text = stringResource(R.string.move_hint),
@@ -240,6 +261,7 @@ fun HomeScreen(vm: HomeViewModel) {
                                     focusedIndex = index
                                     lastFocusedPkg = app.packageName
                                     lastFocusedRecent = false
+                                    newsFocused = false
                                 }
                             },
                             onClick = {
@@ -294,8 +316,10 @@ fun HomeScreen(vm: HomeViewModel) {
                 current = page,
                 modifier = Modifier.align(Alignment.CenterHorizontally),
             )
+            }
+            }
 
-            if (settings.showRecent && recent.isNotEmpty()) {
+            if (settings.showRecent && recent.isNotEmpty()) item {
                 BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                     val rowCardWidth =
                         (maxWidth - SidePadding * 2 - CardGap * (perPage - 1)) / perPage * 0.72f
@@ -322,6 +346,7 @@ fun HomeScreen(vm: HomeViewModel) {
                                         if (has) {
                                             lastFocusedPkg = app.packageName
                                             lastFocusedRecent = true
+                                            newsFocused = false
                                         }
                                     },
                                     onClick = {
@@ -340,7 +365,32 @@ fun HomeScreen(vm: HomeViewModel) {
                 }
             }
 
-            Spacer(Modifier.weight(1f))
+            items(newsRows, key = { it.platform.id }) { row ->
+                Column {
+                    Text(
+                        text = stringResource(R.string.news_title, row.platform.name),
+                        color = k.textSecondary,
+                        fontSize = 15.sp,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+                        modifier = Modifier.padding(start = SidePadding + 4.dp, top = 6.dp),
+                    )
+                    LazyRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(horizontal = SidePadding, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        items(row.titles, key = { "${it.id}-${it.name}" }) { title ->
+                            PosterCard(
+                                title = title,
+                                modifier = Modifier.width(104.dp),
+                                onFocusChange = { has -> if (has) newsFocused = true },
+                                onClick = { context.launchApp(row.app) },
+                            )
+                        }
+                    }
+                }
+            }
+            }
 
             BottomBar(
                 raised = settings.raisedButtons,

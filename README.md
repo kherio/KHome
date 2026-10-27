@@ -8,6 +8,7 @@ Launcher (pantalla de inicio) para Android TV / Google TV, nativo en Kotlin + Je
 - **Elegir qué apps se ven** en el escritorio: Ajustes → Apps del escritorio.
 - **Pulsación larga** (OK mantenido) en una app: mover, ocultar, cerrar, información y desinstalar. El orden se guarda.
 - **Tiempo** (Open-Meteo, sin clave): temperatura, estado, máx/mín, lluvia, viento, humedad y los próximos días. Elige tu ciudad en Ajustes → Tiempo.
+- **Novedades por plataforma** (Netflix, Prime Video, Disney+, Max, Apple TV+, Movistar Plus+, SkyShowtime): una fila de carteles por cada plataforma que tengas instalada. Al elegir un cartel se abre la app de la plataforma (no el título). Usa TMDB y necesita una clave (ver abajo).
 - Reloj grande con fecha (12/24 h).
 - Botones inferiores: entradas HDMI, estado de red (Ethernet/Wi-Fi/VPN) y ajustes. Estilo plano o con relieve.
 - Temas claro / oscuro / sistema, 10 fondos y 6 colores de acento; tarjetas con icono o banner.
@@ -15,6 +16,12 @@ Launcher (pantalla de inicio) para Android TV / Google TV, nativo en Kotlin + Je
 - El botón Atrás no cierra el launcher; pulsar Home estando en KHome vuelve al inicio.
 
 Nota: el botón de entradas depende de que la tele exponga sus entradas HDMI al sistema; en algunos modelos puede no funcionar.
+
+## Novedades: clave de TMDB
+
+Las filas de novedades usan la API gratuita de [TMDB](https://www.themoviedb.org). Crea una clave en themoviedb.org (Ajustes → API) y guárdala en el repositorio como secreto de Actions con el nombre `TMDB_API_KEY` (Settings → Secrets and variables → Actions). Los workflows la pasan al compilar. Sin clave, KHome funciona igual pero sin esas filas.
+
+Este producto usa la API de TMDB pero no está respaldado ni certificado por TMDB.
 
 ## Compilar
 

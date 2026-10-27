@@ -745,3 +745,63 @@ fun MenuDialog(title: String, entries: List<MenuEntry>, onDismiss: () -> Unit) {
         }
     }
 }
+
+// --- Novedades --------------------------------------------------------------
+
+/** Cartel de una novedad. Al elegirlo se abre la app de la plataforma. */
+@Composable
+fun PosterCard(
+    title: com.kherio.khome.news.NewsTitle,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    onFocusChange: ((Boolean) -> Unit)? = null,
+) {
+    val k = LocalK.current
+    val image = rememberRemoteImage("https://image.tmdb.org/t/p/w342${title.posterPath}")
+    Focusable(
+        onClick = onClick,
+        modifier = modifier.aspectRatio(2f / 3f),
+        shape = RoundedCornerShape(12.dp),
+        background = k.card,
+        backgroundFocused = k.cardFocused,
+        idleBorder = k.cardBorder,
+        focusScale = 1f,
+        glowRadius = 12.dp,
+        onFocusChange = onFocusChange,
+    ) { focused ->
+        if (image != null) {
+            Image(
+                bitmap = image,
+                contentDescription = title.name,
+                contentScale = ContentScale.Crop,
+                filterQuality = FilterQuality.High,
+                modifier = Modifier.matchParentSize(),
+            )
+        }
+        if (focused) {
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .background(
+                        Brush.verticalGradient(
+                            0.5f to Color.Transparent,
+                            1f to Color.Black.copy(alpha = 0.78f),
+                        ),
+                    ),
+            )
+            Text(
+                text = title.name,
+                color = Color.White,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .padding(horizontal = 6.dp, vertical = 6.dp),
+            )
+        }
+    }
+}

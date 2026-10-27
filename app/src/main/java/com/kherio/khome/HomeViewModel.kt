@@ -12,6 +12,10 @@ import com.kherio.khome.data.AppEntry
 import com.kherio.khome.data.AppRepository
 import com.kherio.khome.data.PrefsRepository
 import com.kherio.khome.data.Settings
+import com.kherio.khome.news.NewsApi
+import com.kherio.khome.news.NewsRow
+import com.kherio.khome.news.NewsTitle
+import com.kherio.khome.news.PLATFORMS
 import com.kherio.khome.update.ApkInstaller
 import com.kherio.khome.update.NoApkException
 import com.kherio.khome.update.UpdateChecker
@@ -80,6 +84,10 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun setShowNews(value: Boolean) {
+        viewModelScope.launch { prefs.setShowNews(value) }
+    }
+
     fun setAccent(value: Int) {
         viewModelScope.launch { prefs.setAccent(value) }
     }
@@ -99,6 +107,43 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val hidden = settings.value.hidden
             prefs.setHidden(if (visible) hidden - pkg else hidden + pkg)
+        }
+    }
+
+    // --- Novedades por plataforma -------------------------------------------
+
+    private val newsByPlatform = MutableStateFlow<Map<Int, List<NewsTitle>>>(emptyMap())
+
+    /** Una fila por cada plataforma que tengas instalada y de la que haya novedades. */
+    val newsRows: StateFlow<List<NewsRow>> =
+        combine(allApps, settings, newsByPlatform) { apps, s, news ->
+            if (!s.showNews || !NewsApi.hasKey) {
+                emptyList()
+            } else {
+                PLATFORMS.mapNotNull { platform ->
+                    val app = apps.firstOrNull { platform.matches(it) } ?: return@mapNotNull null
+                    val titles = news[platform.id].orEmpty()
+                    if (titles.isEmpty()) null else NewsRow(platform, app, titles)
+                }
+            }
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    private fun startNewsLoop() {
+        if (!NewsApi.hasKey) return
+        viewModelScope.launch {
+            combine(allApps, settings.map { it.showNews }.distinctUntilChanged()) { apps, show ->
+                if (!show) emptyList() else PLATFORMS.filter { p -> apps.any { p.matches(it) } }.map { it.id }
+            }
+                .distinctUntilChanged()
+                .collectLatest { ids ->
+                    while (ids.isNotEmpty()) {
+                        for (id in ids) {
+                            val titles = runCatching { NewsApi.latest(id) }.getOrNull()
+                            if (!titles.isNullOrEmpty()) newsByPlatform.value = newsByPlatform.value + (id to titles)
+                        }
+                        delay(6 * 60 * 60_000L)
+                    }
+                }
         }
     }
 
@@ -127,6 +172,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         refresh()
         checkForUpdate()
         startWeatherLoop()
+        startNewsLoop()
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_PACKAGE_ADDED)
             addAction(Intent.ACTION_PACKAGE_REMOVED)

@@ -20,6 +20,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Compilar APK debug
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
