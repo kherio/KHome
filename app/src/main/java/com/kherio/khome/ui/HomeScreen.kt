@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalTvMaterial3Api::class)
+@file:OptIn(ExperimentalTvMaterial3Api::class, ExperimentalFoundationApi::class)
 
 package com.kherio.khome.ui
 
@@ -25,7 +25,11 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.gestures.BringIntoViewSpec
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -53,6 +57,11 @@ import com.kherio.khome.R
 import com.kherio.khome.data.AppEntry
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+@OptIn(ExperimentalFoundationApi::class)
+private val NoAutoScroll = object : BringIntoViewSpec {
+    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float = 0f
+}
 
 private val SidePadding = 56.dp
 private val CardGap = 16.dp
@@ -103,9 +112,14 @@ fun HomeScreen(vm: HomeViewModel) {
         }
     }
 
-    // La lista avanza de página en página.
-    LaunchedEffect(page, perPage) {
-        listState.animateScrollToItem(page * perPage)
+    // Desplazamiento propio y suave: una tarjeta cada vez, solo cuando el foco
+    // llega al borde. El desplazamiento automático de Compose está desactivado.
+    LaunchedEffect(focusedIndex, perPage) {
+        val first = listState.firstVisibleItemIndex
+        when {
+            focusedIndex >= first + perPage -> listState.animateScrollToItem(focusedIndex - perPage + 1)
+            focusedIndex < first -> listState.animateScrollToItem(focusedIndex)
+        }
     }
 
     // Devuelve el foco a la última tarjeta cuando se cierra un menú.
@@ -192,6 +206,7 @@ fun HomeScreen(vm: HomeViewModel) {
             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                 val cardWidth = (maxWidth - SidePadding * 2 - CardGap * (perPage - 1)) / perPage
                 val cardHeight = cardWidth / 1.58f
+                CompositionLocalProvider(LocalBringIntoViewSpec provides NoAutoScroll) {
                 LazyRow(
                     state = listState,
                     modifier = Modifier
@@ -246,6 +261,7 @@ fun HomeScreen(vm: HomeViewModel) {
                                 },
                         )
                     }
+                }
                 }
             }
 
