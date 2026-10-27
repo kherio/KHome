@@ -35,6 +35,10 @@ data class Settings(
     /** Apps lanzadas desde KHome, la más reciente primero. */
     val recent: List<String> = emptyList(),
     val showRecent: Boolean = true,
+    /** Color de acento (índice de paleta). */
+    val accent: Int = 0,
+    /** 0 = icono, 1 = banner de TV cuando la app lo tiene. */
+    val cardStyle: Int = 0,
 )
 
 class PrefsRepository(private val context: Context) {
@@ -53,6 +57,8 @@ class PrefsRepository(private val context: Context) {
         val LON = doublePreferencesKey("lon")
         val RECENT = stringPreferencesKey("recent")
         val SHOW_RECENT = booleanPreferencesKey("show_recent")
+        val ACCENT = intPreferencesKey("accent")
+        val CARD_STYLE = intPreferencesKey("card_style")
     }
 
     val settings: Flow<Settings> = context.dataStore.data.map { p ->
@@ -70,6 +76,8 @@ class PrefsRepository(private val context: Context) {
             lon = p[Keys.LON] ?: 0.0,
             recent = p[Keys.RECENT]?.split(",")?.filter { it.isNotBlank() } ?: emptyList(),
             showRecent = p[Keys.SHOW_RECENT] ?: true,
+            accent = p[Keys.ACCENT] ?: 0,
+            cardStyle = p[Keys.CARD_STYLE] ?: 0,
         )
     }
 
@@ -107,6 +115,14 @@ class PrefsRepository(private val context: Context) {
 
     suspend fun setRecent(list: List<String>) {
         context.dataStore.edit { it[Keys.RECENT] = list.joinToString(",") }
+    }
+
+    suspend fun setAccent(value: Int) {
+        context.dataStore.edit { it[Keys.ACCENT] = value }
+    }
+
+    suspend fun setCardStyle(value: Int) {
+        context.dataStore.edit { it[Keys.CARD_STYLE] = value }
     }
 
     suspend fun setShowRecent(value: Boolean) {

@@ -80,6 +80,14 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun setAccent(value: Int) {
+        viewModelScope.launch { prefs.setAccent(value) }
+    }
+
+    fun setCardStyle(value: Int) {
+        viewModelScope.launch { prefs.setCardStyle(value) }
+    }
+
     fun setShowRecent(value: Boolean) {
         viewModelScope.launch { prefs.setShowRecent(value) }
     }

@@ -8,7 +8,6 @@ import android.media.tv.TvInputManager
 import android.net.Uri
 import android.provider.Settings
 import com.kherio.khome.data.AppEntry
-import kotlinx.coroutines.delay
 
 fun Context.launchApp(app: AppEntry) {
     val intent = Intent(Intent.ACTION_MAIN)
@@ -48,24 +47,6 @@ fun Context.closeApp(app: AppEntry) {
     runCatching {
         getSystemService(ActivityManager::class.java).killBackgroundProcesses(app.packageName)
     }
-}
-
-/** Cierra los procesos en segundo plano de las apps indicadas y devuelve los MB liberados. */
-suspend fun Context.cleanMemory(packages: List<String>): Long {
-    val am = getSystemService(ActivityManager::class.java)
-
-    fun available(): Long {
-        val info = ActivityManager.MemoryInfo()
-        am.getMemoryInfo(info)
-        return info.availMem
-    }
-
-    val before = available()
-    packages.filter { it != packageName }.forEach {
-        runCatching { am.killBackgroundProcesses(it) }
-    }
-    delay(900)
-    return ((available() - before) / (1024L * 1024L)).coerceAtLeast(0L)
 }
 
 data class TvInput(val id: String, val label: String)

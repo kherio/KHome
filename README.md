@@ -9,8 +9,8 @@ Launcher (pantalla de inicio) para Android TV / Google TV, nativo en Kotlin + Je
 - **Pulsación larga** (OK mantenido) en una app: mover, ocultar, cerrar, información y desinstalar. El orden se guarda.
 - **Tiempo** (Open-Meteo, sin clave): temperatura, estado, máx/mín, lluvia, viento, humedad y los próximos días. Elige tu ciudad en Ajustes → Tiempo.
 - Reloj grande con fecha (12/24 h).
-- Botones inferiores: entradas HDMI, limpiar memoria, estado de red (Ethernet/Wi-Fi/VPN) y ajustes. Estilo plano o con relieve.
-- Temas claro / oscuro / sistema y 5 fondos.
+- Botones inferiores: entradas HDMI, estado de red (Ethernet/Wi-Fi/VPN) y ajustes. Estilo plano o con relieve.
+- Temas claro / oscuro / sistema, 10 fondos y 6 colores de acento; tarjetas con icono o banner.
 - **Actualizador integrado:** detecta nuevas releases de GitHub y se instala desde la propia app.
 - El botón Atrás no cierra el launcher; pulsar Home estando en KHome vuelve al inicio.
 

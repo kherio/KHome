@@ -5,6 +5,9 @@ package com.kherio.khome.ui
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -84,6 +87,7 @@ fun HomeScreen(vm: HomeViewModel) {
     var showSettings by remember { mutableStateOf(false) }
     var menuApp by remember { mutableStateOf<AppEntry?>(null) }
     var movingPkg by remember { mutableStateOf<String?>(null) }
+    var swallowOkUp by remember { mutableStateOf(false) }
     var inputs by remember { mutableStateOf<List<TvInput>?>(null) }
     var focusedIndex by remember { mutableIntStateOf(0) }
     var lastFocusedPkg by remember { mutableStateOf<String?>(null) }
@@ -99,6 +103,7 @@ fun HomeScreen(vm: HomeViewModel) {
     val settingsFocus = remember { FocusRequester() }
     val inputsFocus = remember { FocusRequester() }
     val listState = rememberLazyListState()
+    val cardGapPx = with(androidx.compose.ui.platform.LocalDensity.current) { CardGap.roundToPx() }
 
     val perPage = settings.perPage.coerceIn(3, 6)
     val pageCount = if (apps.isEmpty()) 0 else (apps.size + perPage - 1) / perPage
@@ -118,9 +123,15 @@ fun HomeScreen(vm: HomeViewModel) {
     // llega al borde. El desplazamiento automático de Compose está desactivado.
     LaunchedEffect(focusedIndex, perPage) {
         val first = listState.firstVisibleItemIndex
-        when {
-            focusedIndex >= first + perPage -> listState.animateScrollToItem(focusedIndex - perPage + 1)
-            focusedIndex < first -> listState.animateScrollToItem(focusedIndex)
+        val itemSize = listState.layoutInfo.visibleItemsInfo.firstOrNull()?.size ?: return@LaunchedEffect
+        val step = (itemSize + cardGapPx).toFloat()
+        val delta = when {
+            focusedIndex >= first + perPage -> focusedIndex - (first + perPage - 1)
+            focusedIndex < first -> focusedIndex - first
+            else -> 0
+        }
+        if (delta != 0) {
+            listState.animateScrollBy(step * delta, tween(320, easing = FastOutSlowInEasing))
         }
     }
 
@@ -222,6 +233,7 @@ fun HomeScreen(vm: HomeViewModel) {
                         AppCard(
                             app = app,
                             moving = moving,
+                            useBanner = settings.cardStyle == 1,
                             focusRequester = requesterFor(app.packageName),
                             onFocusChange = { has ->
                                 if (has) {
@@ -241,7 +253,16 @@ fun HomeScreen(vm: HomeViewModel) {
                             modifier = Modifier
                                 .width(cardWidth)
                                 .onPreviewKeyEvent { e ->
-                                    if (!moving) return@onPreviewKeyEvent false
+                                    val isOk = e.key == Key.DirectionCenter || e.key == Key.Enter ||
+                                        e.key == Key.NumPadEnter
+                                    if (!moving) {
+                                        // Al terminar de mover, el OK que suelta la tecla no debe abrir la app.
+                                        if (swallowOkUp && isOk && e.type == KeyEventType.KeyUp) {
+                                            swallowOkUp = false
+                                            return@onPreviewKeyEvent true
+                                        }
+                                        return@onPreviewKeyEvent false
+                                    }
                                     if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent true
                                     when (e.key) {
                                         Key.DirectionLeft -> {
@@ -256,6 +277,7 @@ fun HomeScreen(vm: HomeViewModel) {
                                         }
                                         Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
                                             movingPkg = null
+                                            swallowOkUp = true
                                             true
                                         }
                                         else -> true // Arriba/abajo no hacen nada mientras se mueve.
@@ -294,6 +316,7 @@ fun HomeScreen(vm: HomeViewModel) {
                                 AppCard(
                                     app = app,
                                     compact = true,
+                                    useBanner = settings.cardStyle == 1,
                                     focusRequester = recentRequesterFor(app.packageName),
                                     onFocusChange = { has ->
                                         if (has) {
@@ -329,17 +352,6 @@ fun HomeScreen(vm: HomeViewModel) {
                         Toast.makeText(context, R.string.toast_no_inputs, Toast.LENGTH_SHORT).show()
                     } else {
                         inputs = list
-                    }
-                },
-                onClean = {
-                    scope.launch {
-                        val mb = context.cleanMemory(vm.allPackages())
-                        val msg = if (mb > 0) {
-                            context.getString(R.string.toast_cleaned, mb.toInt())
-                        } else {
-                            context.getString(R.string.toast_cleaned_zero)
-                        }
-                        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                     }
                 },
                 onNetwork = { context.openWifiSettings() },

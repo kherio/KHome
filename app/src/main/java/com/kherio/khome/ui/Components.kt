@@ -8,6 +8,7 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.text.format.DateFormat
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -126,7 +127,17 @@ fun Focusable(
     var focused by remember { mutableStateOf(false) }
     var longFired by remember { mutableStateOf(false) }
     val highlighted = focused || forceHighlight
-    val scale by animateFloatAsState(if (highlighted) focusScale else 1f, tween(140), label = "scale")
+    val scale by animateFloatAsState(
+        if (highlighted) focusScale else 1f,
+        tween(220, easing = FastOutSlowInEasing),
+        label = "scale",
+    )
+    // 0 → 1 al enfocar: anima borde, fondo y halo a la vez, sin saltos.
+    val p by animateFloatAsState(
+        if (highlighted) 1f else 0f,
+        tween(220, easing = FastOutSlowInEasing),
+        label = "focus",
+    )
 
     var base = modifier
     if (focusRequester != null) base = base.focusRequester(focusRequester)
@@ -144,11 +155,11 @@ fun Focusable(
             }
             .drawBehind {
                 // Sombra suave debajo de los botones con relieve.
-                if (lift && !highlighted) {
+                if (lift && p < 1f) {
                     val base = minOf(glowRadius.toPx(), size.minDimension / 2f)
                     for (i in 1..3) {
                         drawRoundRect(
-                            color = Color.Black.copy(alpha = 0.10f),
+                            color = Color.Black.copy(alpha = 0.10f * (1f - p)),
                             topLeft = Offset(-i * 1.2f, 2.dp.toPx() - i * 1.2f + i),
                             size = Size(size.width + i * 2.4f, size.height + i * 2.4f),
                             cornerRadius = CornerRadius(base + i * 1.2f),
@@ -156,13 +167,13 @@ fun Focusable(
                     }
                 }
                 // Halo dorado por fuera del borde (no se ve a través del fondo).
-                if (highlighted && glow) {
+                if (p > 0.01f && glow) {
                     val step = 4.dp.toPx()
                     val base = minOf(glowRadius.toPx(), size.minDimension / 2f)
                     for (i in 1..4) {
                         val grow = step * i - step / 2f
                         drawRoundRect(
-                            color = k.accent.copy(alpha = 0.26f / i),
+                            color = k.accent.copy(alpha = 0.26f * p / i),
                             topLeft = Offset(-grow, -grow),
                             size = Size(size.width + grow * 2, size.height + grow * 2),
                             cornerRadius = CornerRadius(base + grow),
@@ -172,10 +183,10 @@ fun Focusable(
                 }
             }
             .clip(shape)
-            .background(if (highlighted) backgroundFocused else background)
+            .background(lerp(background, backgroundFocused, p))
             .border(
-                width = if (highlighted) 3.dp else 1.dp,
-                color = if (highlighted) k.accent else idleBorder,
+                width = (1f + 2f * p).dp,
+                color = lerp(idleBorder, k.accent, p),
                 shape = shape,
             )
             .then(
@@ -221,6 +232,7 @@ fun AppCard(
     modifier: Modifier = Modifier,
     moving: Boolean = false,
     compact: Boolean = false,
+    useBanner: Boolean = false,
     focusRequester: FocusRequester? = null,
     onFocusChange: ((Boolean) -> Unit)? = null,
 ) {
@@ -242,7 +254,47 @@ fun AppCard(
     ) { focused ->
         val idle = if (compact) 0.52f else 0.55f
         val big = if (compact) 0.46f else 0.60f
-        val fraction by animateFloatAsState(if (focused) big else idle, tween(160), label = "icon")
+        val fraction by animateFloatAsState(
+            if (focused) big else idle,
+            tween(220, easing = FastOutSlowInEasing),
+            label = "icon",
+        )
+        val banner = if (useBanner) app.banner else null
+        if (banner != null) {
+            Image(
+                bitmap = banner,
+                contentDescription = app.label,
+                contentScale = ContentScale.Crop,
+                filterQuality = FilterQuality.High,
+                modifier = Modifier.matchParentSize(),
+            )
+            if (focused) {
+                Box(
+                    Modifier
+                        .matchParentSize()
+                        .background(
+                            Brush.verticalGradient(
+                                0.55f to Color.Transparent,
+                                1f to Color.Black.copy(alpha = 0.65f),
+                            ),
+                        ),
+                )
+                Text(
+                    text = app.label,
+                    color = Color.White,
+                    fontSize = if (compact) 11.sp else 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = if (compact) 3.dp else 6.dp),
+                )
+            }
+            return@Focusable
+        }
 
         // Resplandor suave detrás del icono al enfocar.
         if (focused) {
@@ -534,7 +586,6 @@ fun BottomBar(
     net: NetState,
     update: UpdateState,
     onInputs: () -> Unit,
-    onClean: () -> Unit,
     onNetwork: () -> Unit,
     onVpn: () -> Unit,
     onUpdate: () -> Unit,
@@ -556,12 +607,6 @@ fun BottomBar(
                 raised = raised,
                 onClick = onInputs,
                 focusRequester = inputsFocus,
-            )
-            RoundIconButton(
-                icon = LineIconKind.BROOM,
-                description = stringResource(R.string.cd_clean),
-                raised = raised,
-                onClick = onClean,
             )
             val netIcon = when {
                 net.wired -> LineIconKind.ETHERNET

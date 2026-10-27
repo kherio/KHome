@@ -135,11 +135,38 @@ fun SettingsPanel(vm: HomeViewModel, modifier: Modifier = Modifier) {
                         stringResource(R.string.bg_forest),
                         stringResource(R.string.bg_wine),
                         stringResource(R.string.bg_black),
+                        stringResource(R.string.bg_ocean),
+                        stringResource(R.string.bg_sunset),
+                        stringResource(R.string.bg_purple),
+                        stringResource(R.string.bg_coffee),
+                        stringResource(R.string.bg_midnight),
                     )
                     OptionRow(
                         label = stringResource(R.string.opt_background),
                         value = names[settings.background.coerceIn(0, BACKGROUND_COUNT - 1)],
                         onStep = { vm.setBackground(cycle(settings.background, it, BACKGROUND_COUNT)) },
+                    )
+                }
+                item {
+                    val names = listOf(
+                        stringResource(R.string.accent_gold),
+                        stringResource(R.string.accent_blue),
+                        stringResource(R.string.accent_green),
+                        stringResource(R.string.accent_pink),
+                        stringResource(R.string.accent_orange),
+                        stringResource(R.string.accent_white),
+                    )
+                    OptionRow(
+                        label = stringResource(R.string.opt_accent),
+                        value = names[settings.accent.coerceIn(0, ACCENT_COUNT - 1)],
+                        onStep = { vm.setAccent(cycle(settings.accent, it, ACCENT_COUNT)) },
+                    )
+                }
+                item {
+                    OptionRow(
+                        label = stringResource(R.string.opt_card_style),
+                        value = stringResource(if (settings.cardStyle == 1) R.string.style_banner else R.string.style_icon),
+                        onStep = { vm.setCardStyle(if (settings.cardStyle == 1) 0 else 1) },
                     )
                 }
                 item {

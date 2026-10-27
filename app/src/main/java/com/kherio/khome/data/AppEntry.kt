@@ -9,4 +9,6 @@ data class AppEntry(
     val label: String,
     val activityName: String,
     val icon: ImageBitmap,
+    /** Banner de TV (16:9) si la app lo trae. */
+    val banner: ImageBitmap? = null,
 )

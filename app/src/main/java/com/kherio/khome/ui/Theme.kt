@@ -44,18 +44,33 @@ data class KColors(
     val chipSelected: Color,
 )
 
-private val Gold = Color(0xFFF2C277)
-
 /** Número de fondos disponibles para el tema oscuro (ver strings bg_*). */
-const val BACKGROUND_COUNT = 5
+const val BACKGROUND_COUNT = 10
 
-fun darkKColors(background: Int): KColors {
+/** Número de colores de acento (ver strings accent_*). */
+const val ACCENT_COUNT = 6
+
+private val DarkAccents = listOf(
+    Color(0xFFF2C277), Color(0xFF6EB6FF), Color(0xFF7FD99A),
+    Color(0xFFFF8FB1), Color(0xFFFFA25C), Color(0xFFF2F4F8),
+)
+private val LightAccents = listOf(
+    Color(0xFFD9962B), Color(0xFF2F7DD1), Color(0xFF2E9E57),
+    Color(0xFFD6457A), Color(0xFFE0702A), Color(0xFF3A4250),
+)
+
+fun darkKColors(background: Int, accentIndex: Int = 0): KColors {
     val (top, bottom) = when (background) {
         0 -> Color(0xFF1B212B) to Color(0xFF262D39) // Grafito
         1 -> Color(0xFF0E1A30) to Color(0xFF18294A) // Azul noche
         2 -> Color(0xFF101F1A) to Color(0xFF1C3328) // Bosque
         3 -> Color(0xFF2A1520) to Color(0xFF40202F) // Vino
-        else -> Color(0xFF08090C) to Color(0xFF14161C) // Negro
+        4 -> Color(0xFF08090C) to Color(0xFF14161C) // Negro
+        5 -> Color(0xFF0B1F24) to Color(0xFF123B42) // Océano
+        6 -> Color(0xFF2A1B3D) to Color(0xFF5A2A45) // Atardecer
+        7 -> Color(0xFF1D1530) to Color(0xFF33214F) // Púrpura
+        8 -> Color(0xFF1F1713) to Color(0xFF362820) // Café
+        else -> Color(0xFF0A0F2C) to Color(0xFF1A2260) // Medianoche
     }
     return KColors(
         isDark = true,
@@ -64,7 +79,7 @@ fun darkKColors(background: Int): KColors {
         card = lerp(bottom, Color.White, 0.10f),
         cardFocused = lerp(bottom, Color.White, 0.18f),
         cardBorder = Color.White.copy(alpha = 0.16f),
-        accent = Gold,
+        accent = DarkAccents[accentIndex.coerceIn(0, DarkAccents.lastIndex)],
         textPrimary = Color.White.copy(alpha = 0.96f),
         textSecondary = Color.White.copy(alpha = 0.62f),
         textTertiary = Color.White.copy(alpha = 0.42f),
@@ -77,14 +92,14 @@ fun darkKColors(background: Int): KColors {
     )
 }
 
-fun lightKColors(): KColors = KColors(
+fun lightKColors(accentIndex: Int = 0): KColors = KColors(
     isDark = false,
     bgTop = Color(0xFFE6EAF1),
     bgBottom = Color(0xFFF4F6FA),
     card = Color.White,
     cardFocused = Color.White,
     cardBorder = Color.Black.copy(alpha = 0.10f),
-    accent = Color(0xFFD9962B),
+    accent = LightAccents[accentIndex.coerceIn(0, LightAccents.lastIndex)],
     textPrimary = Color(0xFF1B212B),
     textSecondary = Color.Black.copy(alpha = 0.60f),
     textTertiary = Color.Black.copy(alpha = 0.42f),
@@ -105,7 +120,7 @@ fun KHomeTheme(settings: Settings, content: @Composable () -> Unit) {
         2 -> true
         else -> isSystemInDarkTheme()
     }
-    val colors = if (dark) darkKColors(settings.background) else lightKColors()
+    val colors = if (dark) darkKColors(settings.background, settings.accent) else lightKColors(settings.accent)
 
     CompositionLocalProvider(LocalK provides colors) {
         MaterialTheme(
