@@ -29,7 +29,7 @@ import kotlin.math.sin
 
 // Todos los iconos se dibujan en una cuadrícula de 24x24 y se escalan al tamaño pedido.
 
-enum class LineIconKind { WIFI, ETHERNET, VPN, MONITOR, BROOM, GEAR, BLUETOOTH }
+enum class LineIconKind { WIFI, ETHERNET, VPN, MONITOR, BROOM, GEAR, BLUETOOTH, SLIDERS }
 
 enum class WeatherKind { CLEAR, PARTLY, CLOUDY, FOG, RAIN, SNOW, STORM }
 
@@ -50,6 +50,7 @@ fun LineIcon(kind: LineIconKind, tint: Color, modifier: Modifier = Modifier) {
                 LineIconKind.BROOM -> drawBroom(tint, st)
                 LineIconKind.GEAR -> drawGear(tint, st)
                 LineIconKind.BLUETOOTH -> drawBluetooth(tint, st)
+                LineIconKind.SLIDERS -> drawSliders(tint, st)
             }
         }
     }
@@ -292,5 +293,15 @@ private fun DrawScope.drawCloud(
         val p = cloudPath()
         if (backdrop != null) drawPath(p, backdrop)
         drawPath(p, c, style = st)
+    }
+}
+
+/** Tres reguladores: ajustes del sistema Android (distinto del engranaje, que es el de KHome). */
+private fun DrawScope.drawSliders(c: Color, st: Stroke) {
+    val rows = listOf(6f to 8f, 12f to 16f, 18f to 11f)
+    for ((y, knob) in rows) {
+        drawLine(c, Offset(3f, y), Offset(knob - 2.6f, y), st.width, StrokeCap.Round)
+        drawLine(c, Offset(knob + 2.6f, y), Offset(21f, y), st.width, StrokeCap.Round)
+        drawCircle(c, 2.2f, Offset(knob, y), style = st)
     }
 }

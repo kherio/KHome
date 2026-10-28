@@ -654,8 +654,8 @@ fun BottomBar(
                 tintOverride = if (!net.wired && !net.wifi) k.textTertiary else null,
             )
             RoundIconButton(
-                icon = LineIconKind.BLUETOOTH,
-                description = stringResource(R.string.cd_bluetooth),
+                icon = LineIconKind.SLIDERS,
+                description = stringResource(R.string.cd_android_settings),
                 raised = raised,
                 onClick = onBluetooth,
             )

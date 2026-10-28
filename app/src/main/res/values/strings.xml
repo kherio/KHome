@@ -114,6 +114,7 @@
     <string name="cd_inputs">Entradas</string>
     <string name="cd_clean">Limpiar memoria</string>
     <string name="cd_bluetooth">Bluetooth</string>
+    <string name="cd_android_settings">Ajustes de Android</string>
     <string name="cd_settings">Ajustes</string>
     <string name="net_wifi">Wi-Fi</string>
     <string name="net_ethernet">Ethernet</string>
