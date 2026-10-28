@@ -58,12 +58,10 @@ fun Context.openVpnSettings() = openSettingsAction(Settings.ACTION_VPN_SETTINGS)
  */
 fun Context.openBluetoothSettings() {
     val candidates = listOf(
-        Intent(Settings.ACTION_BLUETOOTH_SETTINGS),
-        Intent(Settings.ACTION_BLUETOOTH_SETTINGS).setPackage("com.android.tv.settings"),
+        // Pantalla "Añadir accesorio" de Google TV: busca y empareja dispositivos Bluetooth.
         Intent().setClassName("com.android.tv.settings", "com.android.tv.settings.accessories.AddAccessoryActivity"),
-        Intent().setClassName("com.android.tv.settings", "com.android.tv.settings.accessories.BluetoothAccessoryActivity"),
-        Intent(Settings.ACTION_BLUETOOTH_SETTINGS).setPackage("com.android.settings"),
-        Intent().setClassName("com.android.settings", "com.android.settings.bluetooth.BluetoothSettings"),
+        Intent(Settings.ACTION_BLUETOOTH_SETTINGS),
+        Intent().setClassName("com.android.tv.settings", "com.android.tv.settings.MainSettings"),
         Intent(Settings.ACTION_SETTINGS),
     )
     for (intent in candidates) {
