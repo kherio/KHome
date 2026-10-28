@@ -43,7 +43,7 @@ class AppRepository(private val context: Context) {
 
     private fun toEntry(ri: ResolveInfo): AppEntry {
         val info = ri.activityInfo
-        val iconBitmap = renderIcon(ri.loadIcon(pm))
+        val iconBitmap = renderIcon(loadBestIcon(ri))
         return AppEntry(
             packageName = info.packageName,
             label = ri.loadLabel(pm).toString(),
@@ -87,6 +87,20 @@ class AppRepository(private val context: Context) {
      * Dibuja el icono en alta resolución. Los iconos adaptativos se renderizan a tamaño completo,
      * se recorta la zona visible y se les da esquinas redondeadas para que no queden pequeños.
      */
+    /** Pide al paquete el icono de mayor densidad (xxxhdpi); si no lo da, usa el que elige el sistema. */
+    private fun loadBestIcon(ri: ResolveInfo): Drawable {
+        val info = ri.activityInfo
+        val iconRes = info.icon.takeIf { it != 0 } ?: info.applicationInfo.icon
+        if (iconRes != 0) {
+            val hi = runCatching {
+                pm.getResourcesForApplication(info.applicationInfo)
+                    .getDrawableForDensity(iconRes, DENSITY_XXXHIGH, null)
+            }.getOrNull()
+            if (hi != null) return hi
+        }
+        return ri.loadIcon(pm)
+    }
+
     private fun renderIcon(d: Drawable): Bitmap {
         if (Build.VERSION.SDK_INT >= 26 && d is AdaptiveIconDrawable) {
             val big = ICON_SIZE * 3 / 2
@@ -104,12 +118,17 @@ class AppRepository(private val context: Context) {
             full.recycle()
             return out
         }
-        return d.toBitmap(ICON_SIZE, ICON_SIZE)
+        // Iconos clásicos: se dibujan al doble y se reducen con filtro para que los bordes queden suaves.
+        val twice = d.toBitmap(ICON_SIZE * 2, ICON_SIZE * 2)
+        val scaled = Bitmap.createScaledBitmap(twice, ICON_SIZE, ICON_SIZE, true)
+        if (scaled !== twice) twice.recycle()
+        return scaled
     }
 
     private companion object {
-        const val ICON_SIZE = 256
-        const val BANNER_W = 480
-        const val BANNER_H = 270
+        const val ICON_SIZE = 384
+        const val DENSITY_XXXHIGH = 640
+        const val BANNER_W = 640
+        const val BANNER_H = 360
     }
 }
