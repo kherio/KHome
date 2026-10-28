@@ -449,6 +449,12 @@ fun ClockWidget(use24h: Boolean, modifier: Modifier = Modifier) {
             fontSize = 18.sp,
             fontWeight = FontWeight.Medium,
         )
+        Text(
+            text = stringResource(R.string.greeting_tagline),
+            color = k.textSecondary,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Normal,
+        )
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = hours,
