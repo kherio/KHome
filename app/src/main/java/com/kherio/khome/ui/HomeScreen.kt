@@ -70,6 +70,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import kotlinx.coroutines.isActive
 import kotlin.math.abs
+import kotlin.math.exp
+import kotlin.math.sign
+import kotlinx.coroutines.flow.collectLatest
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -214,6 +218,7 @@ fun HomeScreen(vm: HomeViewModel) {
     val recentAlpha by animateFloatAsState(if (activeRow == 1) 1f else 0.72f, tween(350), label = "a1")
     val newsAlpha by animateFloatAsState(if (activeRow == 2) 1f else 0.72f, tween(350), label = "a2")
     var wasMoving by remember { mutableStateOf(false) }
+    var targetFirst by remember { mutableIntStateOf(0) }
     val backdrops by vm.backdrops.collectAsState()
     val extraRows by vm.extraRows.collectAsState()
     val streamingApps by vm.streamingApps.collectAsState()
@@ -325,20 +330,41 @@ fun HomeScreen(vm: HomeViewModel) {
         }
     }
 
-    // Desplazamiento propio y suave: una tarjeta cada vez, solo cuando el foco
-    // llega al borde. El desplazamiento automático de Compose está desactivado.
-    LaunchedEffect(focusedIndex, perPage) {
-        if (movingPkg != null) return@LaunchedEffect
-        val first = listState.firstVisibleItemIndex
-        val itemSize = listState.layoutInfo.visibleItemsInfo.firstOrNull()?.size ?: return@LaunchedEffect
-        val step = (itemSize + cardGapPx).toFloat()
-        val delta = when {
-            focusedIndex >= first + perPage -> focusedIndex - (first + perPage - 1)
-            focusedIndex < first -> focusedIndex - first
-            else -> 0
-        }
-        if (delta != 0) {
-            listState.animateScrollBy(step * delta, tween(320, easing = FastOutSlowInEasing))
+    // Cámara de la fila de apps. El foco decide qué ventana de tarjetas debe verse (targetFirst) y
+    // la cámara la persigue fotograma a fotograma con suavizado exponencial. Como solo se
+    // reajusta el destino, mantener pulsada la flecha produce un deslizamiento continuo, sin
+    // animaciones que se cancelen y se reinicien en cada repetición de tecla.
+    LaunchedEffect(focusedIndex, perPage, apps.size) {
+        if (movingPkg != null || apps.isEmpty()) return@LaunchedEffect
+        val maxFirst = maxOf(0, apps.size - perPage)
+        var t = targetFirst.coerceIn(0, maxFirst)
+        if (focusedIndex > t + perPage - 1) t = focusedIndex - (perPage - 1)
+        else if (focusedIndex < t) t = focusedIndex
+        targetFirst = t.coerceIn(0, maxFirst)
+    }
+    LaunchedEffect(perPage) {
+        snapshotFlow { targetFirst to (movingPkg == null) }.collectLatest { (tf, idle) ->
+            if (!idle) return@collectLatest
+            var last = 0L
+            while (movingPkg == null) {
+                val nanos = withFrameNanos { it }
+                val dt = if (last == 0L) 0.016f else ((nanos - last) / 1e9f).coerceIn(0.001f, 0.05f)
+                last = nanos
+                val firstItem = listState.layoutInfo.visibleItemsInfo.firstOrNull() ?: break
+                val step = (firstItem.size + cardGapPx).toFloat()
+                val pos = listState.firstVisibleItemIndex * step + listState.firstVisibleItemScrollOffset
+                val delta = tf * step - pos
+                if (abs(delta) < 1.5f) {
+                    if (delta != 0f) listState.scrollBy(delta)
+                    break
+                }
+                var move = delta * (1f - exp(-dt / 0.075f))
+                // La cámara nunca se queda más de una tarjeta por detrás del foco.
+                val maxLag = step * 0.9f
+                if (abs(delta - move) > maxLag) move = delta - sign(delta) * maxLag
+                val consumed = listState.scrollBy(move)
+                if (abs(move) > 0.5f && abs(consumed) < 0.5f) break // tope de la lista
+            }
         }
     }
 
@@ -368,7 +394,7 @@ fun HomeScreen(vm: HomeViewModel) {
         } else if (wasMoving) {
             wasMoving = false
             val target = (focusedIndex - perPage / 2).coerceIn(0, maxOf(0, apps.size - perPage))
-            listState.animateScrollToItem(target)
+            targetFirst = target // la cámara de la fila lleva la lista hasta ahí
         }
     }
 
@@ -398,6 +424,7 @@ fun HomeScreen(vm: HomeViewModel) {
         movingPkg = null
         inputs = null
         focusedIndex = 0
+        targetFirst = 0
         newsFocused = false
         scope.launch {
             pageState.animateScrollToItem(0)
