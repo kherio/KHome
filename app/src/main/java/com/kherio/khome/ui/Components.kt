@@ -15,6 +15,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
@@ -282,7 +283,8 @@ fun AppCard(
         val big = if (compact) 0.64f else 0.72f
         val fraction by animateFloatAsState(
             if (focused) big else idle,
-            tween(220, easing = FastOutSlowInEasing),
+            // Muelle: al enfocar el icono crece de más y rebota hasta su tamaño; al salir, se encoge con suavidad.
+            if (focused) spring(dampingRatio = 0.42f, stiffness = 380f) else spring(dampingRatio = 0.8f, stiffness = 300f),
             label = "icon",
         )
         val banner = if (useBanner) app.banner else null
