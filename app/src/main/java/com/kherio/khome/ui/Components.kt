@@ -452,14 +452,14 @@ fun ClockWidget(use24h: Boolean, modifier: Modifier = Modifier) {
                 text = hours,
                 color = k.textPrimary,
                 fontSize = 88.sp,
-                fontWeight = FontWeight.ExtraLight,
+                fontWeight = FontWeight.Normal,
                 lineHeight = 92.sp,
             )
             Text(
                 text = ":",
                 color = k.textPrimary,
                 fontSize = 88.sp,
-                fontWeight = FontWeight.ExtraLight,
+                fontWeight = FontWeight.Normal,
                 lineHeight = 92.sp,
                 modifier = Modifier.alpha(colonAlpha),
             )
@@ -467,7 +467,7 @@ fun ClockWidget(use24h: Boolean, modifier: Modifier = Modifier) {
                 text = minutes,
                 color = k.textPrimary,
                 fontSize = 88.sp,
-                fontWeight = FontWeight.ExtraLight,
+                fontWeight = FontWeight.Normal,
                 lineHeight = 92.sp,
             )
         }
