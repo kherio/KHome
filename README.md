@@ -2,6 +2,8 @@
 
 Launcher (pantalla de inicio) para Android TV / Google TV, nativo en Kotlin + Jetpack Compose for TV. Diseño limpio: tiempo y reloj arriba, carrusel de apps en el centro y botones redondos abajo.
 
+![Pantalla de inicio de KHome](screenshots/inicio.png)
+
 ## Funciones
 
 - **Carrusel de apps** con tarjetas de icono (3 a 6 por pantalla), borde dorado al enfocar y nombre solo en la tarjeta enfocada. Puntos de página.
