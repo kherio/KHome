@@ -34,7 +34,6 @@
     <string name="opt_tint">Color según la app</string>
     <string name="greeting_morning">Buenos días, Javi</string>
     <string name="greeting_afternoon">Buenas tardes, Javi</string>
-    <string name="greeting_tagline">eres el fucking master.</string>
     <string name="greeting_night">Buenas noches, Javi</string>
     <string name="opt_accent">Color de acento</string>
     <string name="accent_gold">Dorado</string>
